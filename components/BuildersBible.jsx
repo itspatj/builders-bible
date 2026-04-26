@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect } from "react";
-import { BookOpen, Bookmark, NotebookPen, Settings, Flame, ChevronLeft, Check, Lock, ArrowRight, Sparkles, Target, Crown, Coins, Compass, Flame as FireIcon } from "lucide-react";
+import { BookOpen, Bookmark, NotebookPen, Settings, Flame, ChevronLeft, Check, Lock, ArrowRight, Sparkles, Target, Crown, Coins, Compass, Flame as FireIcon, User, Edit2 } from "lucide-react";
 import { createClient } from '../lib/supabase';
 import { loadUserData, saveProfile, unlockDay, completeDay, saveStreak, saveNote as saveNoteDB, toggleBookmarkDB } from '../lib/db';
+
 
 /* ============ CONSTANTS ============ */
 
@@ -372,7 +373,11 @@ export default function App() {
       loadData(session?.user ?? null);
     });
   
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'USER_UPDATED') {
+        setUser(session?.user ?? null);
+        return;
+      }
       loadData(session?.user ?? null);
     });
   
@@ -414,8 +419,8 @@ export default function App() {
 
   /* ===== DASHBOARD ===== */
   if (screen === "dashboard") {
-    return <Dashboard state={state} persist={persist} setScreen={setScreen} setActiveEntryId={setActiveEntryId} />;
-  }
+    return <Dashboard state={state} persist={persist} setScreen={setScreen} setActiveEntryId={setActiveEntryId} user={user} />;
+    }
 
   /* ===== ENTRY ===== */
   if (screen === "entry" && activeEntryId) {
@@ -433,6 +438,9 @@ export default function App() {
   }
 
   /* ===== SETTINGS ===== */
+  if (screen === "profile") {
+    return <ProfileView state={state} setState={setState} user={user} setScreen={setScreen} />;
+  }
   if (screen === "settings") {
     return <SettingsView state={state} persist={persist} setScreen={setScreen} setOnboardingStep={setOnboardingStep} user={user} setUser={setUser} />;
   }
@@ -657,7 +665,7 @@ function Step2({ draft, setDraft }) {
 
 /* ============ DASHBOARD ============ */
 
-function Dashboard({ state, persist, setScreen, setActiveEntryId }) {
+function Dashboard({ state, persist, setScreen, setActiveEntryId, user }) {
   const path = READING_PATHS.find((p) => p.id === state.readingPath);
   const pace = PACES.find((p) => p.id === state.pace);
   const entries = getEntriesForPath(state.readingPath);
@@ -748,11 +756,12 @@ function Dashboard({ state, persist, setScreen, setActiveEntryId }) {
         </div>
 
         {/* Footer Nav */}
-        <div style={{ marginTop: 28, paddingTop: 20, borderTop: "1px solid " + COLORS.borderSoft, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-          <NavButton icon={<NotebookPen size={16} />} label="Notes" onClick={() => setScreen("notes")} count={Object.keys(state.notes).length} />
-          <NavButton icon={<Bookmark size={16} />} label="Saved" onClick={() => setScreen("bookmarks")} count={state.bookmarks.length} />
-          <NavButton icon={<Settings size={16} />} label="Settings" onClick={() => setScreen("settings")} />
-        </div>
+        <div style={{ marginTop: 28, paddingTop: 20, borderTop: "1px solid " + COLORS.borderSoft, display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
+  <NavButton icon={<NotebookPen size={16} />} label="Notes" onClick={() => setScreen("notes")} count={Object.keys(state.notes).length} />
+  <NavButton icon={<Bookmark size={16} />} label="Saved" onClick={() => setScreen("bookmarks")} count={state.bookmarks.length} />
+  <NavButton icon={<User size={16} />} label="Profile" onClick={() => setScreen("profile")} />
+  <NavButton icon={<Settings size={16} />} label="Settings" onClick={() => setScreen("settings")} />
+</div>
       </div>
     </div>
   );
@@ -1070,6 +1079,163 @@ function BookmarksView({ state, setScreen, setActiveEntryId }) {
 }
 
 /* ============ SETTINGS ============ */
+
+function ProfileView({ state, setState, user, setScreen }) {
+  const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState(user?.user_metadata?.full_name || "");
+  const [editRole, setEditRole] = useState(state.userType || "");
+  const [saving, setSaving] = useState(false);
+
+  const path = READING_PATHS.find((p) => p.id === state.readingPath);
+  const pace = PACES.find((p) => p.id === state.pace);
+  const userType = USER_TYPES.find((u) => u.id === state.userType);
+
+  const memberSince = user?.created_at
+    ? new Date(user.created_at).toLocaleDateString("en-US", { month: "long", year: "numeric" })
+    : "--";
+
+  const initials = (user?.user_metadata?.full_name || user?.email || "?")
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+
+    const handleSave = async () => {
+      setSaving(true);
+      try {
+        const supabase = createClient();
+        await supabase.auth.updateUser({ data: { full_name: editName } });
+        await saveProfile(user.id, user.email, {
+          userType: editRole,
+          readingPath: state.readingPath,
+          pace: state.pace,
+        });
+        setState({ ...state, userType: editRole });
+        user.user_metadata.full_name = editName;
+      } catch (e) {
+        console.error("Error saving profile:", e);
+      }
+      setSaving(false);
+      setEditing(false);
+    };
+
+  return (
+    <div style={{ minHeight: "100vh", background: COLORS.navyDeep, color: COLORS.cream, fontFamily: "Georgia, serif" }}>
+      <div style={{ position: "sticky", top: 0, background: COLORS.navyDeep, borderBottom: "1px solid " + COLORS.borderSoft, padding: "16px 20px", zIndex: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <button onClick={() => setScreen("dashboard")} style={{ background: "none", border: "none", color: COLORS.gold, fontFamily: "inherit", fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
+          <ChevronLeft size={18} /> Back
+        </button>
+        <div style={{ fontSize: 18, fontWeight: 400, color: COLORS.cream }}>Profile</div>
+        <button onClick={() => setEditing(!editing)} style={{ background: "none", border: "none", color: COLORS.gold, cursor: "pointer", padding: 4 }}>
+          <Edit2 size={18} />
+        </button>
+      </div>
+
+      <div style={{ maxWidth: 560, margin: "0 auto", padding: "32px 20px 48px" }}>
+
+        {/* Avatar and name */}
+        <div style={{ textAlign: "center", marginBottom: 32 }}>
+          <div style={{
+            width: 80, height: 80, borderRadius: "50%",
+            background: "linear-gradient(135deg, " + COLORS.gold + ", " + COLORS.goldSoft + ")",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            margin: "0 auto 16px",
+            fontSize: 28, fontWeight: 700, color: COLORS.navyDeep,
+            fontFamily: "Helvetica, sans-serif",
+          }}>
+            {initials}
+          </div>
+          {!editing ? (
+            <>
+              <div style={{ fontSize: 22, fontWeight: 400, color: COLORS.cream, marginBottom: 4 }}>
+                {user?.user_metadata?.full_name || "No name set"}
+              </div>
+              <div style={{ fontSize: 13, color: COLORS.goldSoft, fontStyle: "italic" }}>
+                {userType?.label || "--"}
+              </div>
+              <div style={{ fontSize: 12, color: COLORS.muted, marginTop: 4, fontFamily: "Helvetica, sans-serif", letterSpacing: 1 }}>
+                Member since {memberSince}
+              </div>
+            </>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 320, margin: "0 auto" }}>
+              <div>
+                <div style={{ fontSize: 10, letterSpacing: 3, color: COLORS.muted, textTransform: "uppercase", fontFamily: "Helvetica, sans-serif", marginBottom: 6, textAlign: "left" }}>Name</div>
+                <input
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  style={{ width: "100%", padding: "12px 14px", background: COLORS.charcoal, border: "1px solid " + COLORS.border, borderRadius: 8, color: COLORS.cream, fontFamily: "Georgia, serif", fontSize: 14, outline: "none", boxSizing: "border-box" }}
+                />
+              </div>
+              <div>
+                <div style={{ fontSize: 10, letterSpacing: 3, color: COLORS.muted, textTransform: "uppercase", fontFamily: "Helvetica, sans-serif", marginBottom: 6, textAlign: "left" }}>Role</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {USER_TYPES.map((u) => (
+                    <button
+                      key={u.id}
+                      onClick={() => setEditRole(u.id)}
+                      style={{
+                        padding: "10px 14px", borderRadius: 8, border: editRole === u.id ? "1px solid " + COLORS.gold : "1px solid " + COLORS.border,
+                        background: editRole === u.id ? COLORS.charcoalLight : COLORS.charcoal,
+                        color: editRole === u.id ? COLORS.gold : COLORS.cream,
+                        fontFamily: "Georgia, serif", fontSize: 13, cursor: "pointer", textAlign: "left",
+                      }}
+                    >
+                      {u.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                style={{ padding: "13px", background: "linear-gradient(135deg, " + COLORS.gold + ", " + COLORS.goldSoft + ")", color: COLORS.navyDeep, border: "none", borderRadius: 8, fontFamily: "Georgia, serif", fontSize: 13, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", cursor: "pointer" }}
+              >
+                {saving ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Stats */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
+          <StatCard label="Current Streak" value={state.streak + " days"} />
+          <StatCard label="Days Completed" value={state.completedDays.length} />
+        </div>
+
+        {/* Reading plan */}
+        <div style={{ background: COLORS.charcoal, border: "1px solid " + COLORS.border, borderRadius: 12, padding: "18px 20px" }}>
+          <div style={{ fontSize: 10, letterSpacing: 3, color: COLORS.goldSoft, textTransform: "uppercase", fontFamily: "Helvetica, sans-serif", marginBottom: 12 }}>Reading Plan</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span style={{ fontSize: 13, color: COLORS.muted }}>Path</span>
+              <span style={{ fontSize: 13, color: COLORS.cream }}>{path?.name || "--"}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span style={{ fontSize: 13, color: COLORS.muted }}>Pace</span>
+              <span style={{ fontSize: 13, color: COLORS.cream }}>{pace?.name || "--"}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span style={{ fontSize: 13, color: COLORS.muted }}>Email</span>
+              <span style={{ fontSize: 13, color: COLORS.cream }}>{user?.email}</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
+function StatCard({ label, value }) {
+  return (
+    <div style={{ background: COLORS.charcoal, border: "1px solid " + COLORS.border, borderRadius: 12, padding: "16px 18px", textAlign: "center" }}>
+      <div style={{ fontSize: 24, fontWeight: 700, color: COLORS.gold, marginBottom: 4 }}>{value}</div>
+      <div style={{ fontSize: 10, letterSpacing: 2, color: COLORS.muted, textTransform: "uppercase", fontFamily: "Helvetica, sans-serif" }}>{label}</div>
+    </div>
+  );
+}
 
 function SettingsView({ state, persist, setScreen, setOnboardingStep, user, setUser }) {
   const path = READING_PATHS.find((p) => p.id === state.readingPath);
