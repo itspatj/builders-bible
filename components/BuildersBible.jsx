@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { BookOpen, Bookmark, NotebookPen, Settings, Flame, ChevronLeft, Check, Lock, ArrowRight, Sparkles, Target, Crown, Coins, Compass, Flame as FireIcon } from "lucide-react";
 import { createClient } from '../lib/supabase';
+import { loadUserData, saveProfile, unlockDay, completeDay, saveStreak, saveNote as saveNoteDB, toggleBookmarkDB } from '../lib/db';
 
 /* ============ CONSTANTS ============ */
 
@@ -347,40 +348,50 @@ export default function App() {
   useEffect(() => {
     const supabase = createClient();
   
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      setAuthLoaded(true);
-      if (session?.user) {
-        function load() {
-          try {
-            const saved = localStorage.getItem(STORAGE_KEY);
-            if (saved) {
-              const parsed = JSON.parse(saved);
-              setState(parsed);
-              if (parsed.onboarded) setScreen('dashboard');
-            }
-          } catch (e) {}
-          setLoaded(true);
-        }
-        load();
-      } else {
+    const loadData = async (sessionUser) => {
+      if (!sessionUser) {
+        setUser(null);
+        setAuthLoaded(true);
         setLoaded(true);
+        return;
       }
+      setUser(sessionUser);
+      setAuthLoaded(true);
+      try {
+        const data = await loadUserData(sessionUser.id);
+        console.log('loaded data:', data);
+        setState(data);
+        if (data.onboarded) setScreen('dashboard');
+      } catch (e) {
+        console.error('Error loading user data:', e);
+      }
+      setLoaded(true);
+    };
+  
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      loadData(session?.user ?? null);
     });
   
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+      loadData(session?.user ?? null);
     });
   
     return () => subscription.unsubscribe();
   }, []);
 
   // Save
-  const persist = (next) => {
+  const persist = async (next, user) => {
     setState(next);
+    if (!user?.id) return;
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    } catch (e) {}
+      await saveProfile(user.id, user.email, {
+        userType: next.userType,
+        readingPath: next.readingPath,
+        pace: next.pace,
+      });
+    } catch (e) {
+      console.error('Error saving profile:', e);
+    }
   };
 
   if (!authLoaded || !loaded) {
@@ -398,7 +409,7 @@ export default function App() {
   /* ===== ONBOARDING ===== */
   
   if (screen === "onboarding") {
-    return <Onboarding step={onboardingStep} setStep={setOnboardingStep} state={state} persist={persist} setScreen={setScreen} transitioning={transitioning} setTransitioning={setTransitioning} />;
+    return <Onboarding step={onboardingStep} setStep={setOnboardingStep} state={state} persist={(next) => persist(next, user)} setScreen={setScreen} transitioning={transitioning} setTransitioning={setTransitioning} />;
   }
 
   /* ===== DASHBOARD ===== */
@@ -408,7 +419,7 @@ export default function App() {
 
   /* ===== ENTRY ===== */
   if (screen === "entry" && activeEntryId) {
-    return <EntryView entryId={activeEntryId} state={state} persist={persist} setScreen={setScreen} />;
+    return <EntryView entryId={activeEntryId} state={state} persist={persist} setScreen={setScreen} user={user} />;
   }
 
   /* ===== NOTES ===== */
@@ -423,7 +434,7 @@ export default function App() {
 
   /* ===== SETTINGS ===== */
   if (screen === "settings") {
-    return <SettingsView state={state} persist={persist} setScreen={setScreen} setOnboardingStep={setOnboardingStep} />;
+    return <SettingsView state={state} persist={persist} setScreen={setScreen} setOnboardingStep={setOnboardingStep} user={user} setUser={setUser} />;
   }
 
   return null;
@@ -775,7 +786,7 @@ function NavButton({ icon, label, onClick, count }) {
 
 /* ============ ENTRY VIEW ============ */
 
-function EntryView({ entryId, state, persist, setScreen }) {
+function EntryView({ entryId, state, persist, setScreen, user }) {
   const allEntries = Object.values(ENTRIES).flat();
   const entry = allEntries.find((e) => e.id === entryId);
   if (!entry) return null;
@@ -785,12 +796,13 @@ function EntryView({ entryId, state, persist, setScreen }) {
   const bookmarked = state.bookmarks.includes(entry.id);
   const [noteText, setNoteText] = useState(state.notes[entry.id] || "");
 
-  const unlock = () => {
+  const unlock = async () => {
     const next = { ...state, unlockedDays: [...state.unlockedDays, entry.id] };
-    persist(next);
+    persist(next, user);
+    if (user?.id) await unlockDay(user.id, entry.id);
   };
 
-  const toggleComplete = () => {
+  const toggleComplete = async () => {
     const today = new Date().toDateString();
     let newStreak = state.streak;
     let newCompleted;
@@ -798,28 +810,33 @@ function EntryView({ entryId, state, persist, setScreen }) {
       newCompleted = state.completedDays.filter((id) => id !== entry.id);
     } else {
       newCompleted = [...state.completedDays, entry.id];
-      if (state.lastCompleted !== today) {
-        newStreak = state.streak + 1;
-      }
+      if (state.lastCompleted !== today) newStreak = state.streak + 1;
     }
-    persist({ ...state, completedDays: newCompleted, streak: newStreak, lastCompleted: today });
+    const next = { ...state, completedDays: newCompleted, streak: newStreak, lastCompleted: today };
+    persist(next, user);
+    if (user?.id) {
+      await completeDay(user.id, entry.id, !completed);
+      await saveStreak(user.id, newStreak, today);
+    }
   };
 
-  const toggleBookmark = () => {
+  const toggleBookmark = async () => {
     const next = bookmarked
       ? state.bookmarks.filter((id) => id !== entry.id)
       : [...state.bookmarks, entry.id];
-    persist({ ...state, bookmarks: next });
+    const nextState = { ...state, bookmarks: next };
+    persist(nextState, user);
+    if (user?.id) await toggleBookmarkDB(user.id, entry.id, !bookmarked);
   };
 
-  const saveNote = (text) => {
+  const saveNote = async (text) => {
     setNoteText(text);
     const next = { ...state.notes };
     if (text.trim()) next[entry.id] = text;
     else delete next[entry.id];
-    persist({ ...state, notes: next });
+    persist({ ...state, notes: next }, user);
+    if (user?.id) await saveNoteDB(user.id, entry.id, text);
   };
-
   return (
     <div style={{ minHeight: "100vh", background: COLORS.navyDeep, color: COLORS.cream, fontFamily: "Georgia, serif" }}>
       {/* Top bar */}
@@ -1054,7 +1071,7 @@ function BookmarksView({ state, setScreen, setActiveEntryId }) {
 
 /* ============ SETTINGS ============ */
 
-function SettingsView({ state, persist, setScreen, setOnboardingStep }) {
+function SettingsView({ state, persist, setScreen, setOnboardingStep, user, setUser }) {
   const path = READING_PATHS.find((p) => p.id === state.readingPath);
   const pace = PACES.find((p) => p.id === state.pace);
   const userType = USER_TYPES.find((u) => u.id === state.userType);
@@ -1066,7 +1083,7 @@ function SettingsView({ state, persist, setScreen, setOnboardingStep }) {
         completedDays: [], unlockedDays: [], notes: {}, bookmarks: [],
         streak: 0, lastCompleted: null,
       };
-      persist(fresh);
+      persist(fresh, user);
       setOnboardingStep(0);
       setScreen("onboarding");
     }
@@ -1082,21 +1099,50 @@ function SettingsView({ state, persist, setScreen, setOnboardingStep }) {
         <SettingRow label="Streak" value={state.streak + " days"} />
         <SettingRow label="Days Completed" value={state.completedDays.length} />
 
-        <div style={{ marginTop: 28, padding: "16px 18px", background: COLORS.charcoal, border: "1px solid " + COLORS.border, borderRadius: 10 }}>
-          <div style={{ fontSize: 13, color: COLORS.muted, lineHeight: 1.6, marginBottom: 12 }}>
-            Want to switch your reading path or pace? Reset will take you back through onboarding without losing your bookmarks until completed.
+        <div style={{ marginTop: 28, display: "flex", flexDirection: "column", gap: 10 }}>
+
+          <div style={{ background: COLORS.charcoal, border: "1px solid " + COLORS.border, borderRadius: 10, padding: "16px 18px" }}>
+            <div style={{ fontSize: 10, letterSpacing: 3, color: COLORS.goldSoft, textTransform: "uppercase", fontFamily: "Helvetica, sans-serif", marginBottom: 10 }}>Account</div>
+            <div style={{ fontSize: 14, color: COLORS.cream, marginBottom: 4 }}>{user?.user_metadata?.full_name || "No name set"}</div>
+            <div style={{ fontSize: 13, color: COLORS.muted }}>{user?.email}</div>
           </div>
+
           <button
-            onClick={reset}
+            onClick={async () => {
+              const supabase = createClient();
+              await supabase.auth.signOut();
+              setUser(null);
+              setScreen("onboarding");
+            }}
             style={{
-              width: "100%", padding: "12px", background: "transparent",
-              color: "#D88A8A", border: "1px solid #5A2A2A",
-              borderRadius: 8, fontFamily: "Georgia, serif", fontSize: 13, fontWeight: 700,
-              letterSpacing: 1.5, textTransform: "uppercase", cursor: "pointer",
+              width: "100%", padding: "14px", background: "transparent",
+              color: COLORS.gold, border: "1px solid " + COLORS.gold,
+              borderRadius: 8, fontFamily: "Georgia, serif", fontSize: 13,
+              fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase",
+              cursor: "pointer",
             }}
           >
-            Reset Progress
+            Log Out
           </button>
+
+          <div style={{ background: COLORS.charcoal, border: "1px solid " + COLORS.border, borderRadius: 10, padding: "16px 18px" }}>
+            <div style={{ fontSize: 13, color: COLORS.muted, lineHeight: 1.6, marginBottom: 12 }}>
+              Want to switch your reading path or pace? Reset will take you back through onboarding.
+            </div>
+            <button
+              onClick={reset}
+              style={{
+                width: "100%", padding: "12px", background: "transparent",
+                color: "#D88A8A", border: "1px solid #5A2A2A",
+                borderRadius: 8, fontFamily: "Georgia, serif", fontSize: 13,
+                fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase",
+                cursor: "pointer",
+              }}
+            >
+              Reset Progress
+            </button>
+          </div>
+
         </div>
       </div>
     </div>
