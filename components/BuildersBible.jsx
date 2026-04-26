@@ -340,6 +340,7 @@ export default function App() {
   });
   const [screen, setScreen] = useState("onboarding");
   const [onboardingStep, setOnboardingStep] = useState(0);
+  const [transitioning, setTransitioning] = useState(false);
   const [activeEntryId, setActiveEntryId] = useState(null);
 
   // Load
@@ -395,8 +396,9 @@ export default function App() {
   }
 
   /* ===== ONBOARDING ===== */
+  
   if (screen === "onboarding") {
-    return <Onboarding step={onboardingStep} setStep={setOnboardingStep} state={state} persist={persist} setScreen={setScreen} />;
+    return <Onboarding step={onboardingStep} setStep={setOnboardingStep} state={state} persist={persist} setScreen={setScreen} transitioning={transitioning} setTransitioning={setTransitioning} />;
   }
 
   /* ===== DASHBOARD ===== */
@@ -429,7 +431,7 @@ export default function App() {
 
 /* ============ ONBOARDING ============ */
 
-function Onboarding({ step, setStep, state, persist, setScreen }) {
+function Onboarding({ step, setStep, state, persist, setScreen, transitioning, setTransitioning }) {
   const [draft, setDraft] = useState({
     userType: state.userType,
     readingPath: state.readingPath,
@@ -437,16 +439,20 @@ function Onboarding({ step, setStep, state, persist, setScreen }) {
   });
 
   const proceed = () => {
-    if (step < 2) setStep(step + 1);
-    else {
-      const next = {
-        ...state,
-        ...draft,
-        onboarded: true,
-      };
-      persist(next);
-      setScreen("dashboard");
-    }
+    setTransitioning(true);
+    setTimeout(() => {
+      if (step < 2) setStep(step + 1);
+      else {
+        const next = {
+          ...state,
+          ...draft,
+          onboarded: true,
+        };
+        persist(next);
+        setScreen("dashboard");
+      }
+      setTransitioning(false);
+    }, 300);
   };
 
   const back = () => {
@@ -469,11 +475,18 @@ function Onboarding({ step, setStep, state, persist, setScreen }) {
         )}
       </div>
 
-      <div style={{ padding: "32px 20px 120px", maxWidth: 560, margin: "0 auto" }}>
-        {step === 0 && <Step0 draft={draft} setDraft={setDraft} />}
-        {step === 1 && <Step1 draft={draft} setDraft={setDraft} />}
-        {step === 2 && <Step2 draft={draft} setDraft={setDraft} />}
-      </div>
+      <div style={{
+  padding: "32px 20px 120px",
+  maxWidth: 560,
+  margin: "0 auto",
+  opacity: transitioning ? 0 : 1,
+  transform: transitioning ? 'translateY(12px)' : 'translateY(0)',
+  transition: 'opacity 0.3s ease, transform 0.3s ease',
+}}>
+  {step === 0 && <Step0 draft={draft} setDraft={setDraft} />}
+  {step === 1 && <Step1 draft={draft} setDraft={setDraft} />}
+  {step === 2 && <Step2 draft={draft} setDraft={setDraft} />}
+</div>
 
       {/* Continue */}
       <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, padding: "16px 20px 28px", background: "linear-gradient(to top, " + COLORS.navyDeep + " 80%, transparent)" }}>
