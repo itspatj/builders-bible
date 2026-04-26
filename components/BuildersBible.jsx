@@ -704,56 +704,122 @@ function Dashboard({ state, persist, setScreen, setActiveEntryId, user }) {
           </div>
         </div>
 
-        {/* Today's Entries */}
-        <div style={{ marginBottom: 14 }}>
-          <div style={{ fontSize: 10, letterSpacing: 3, color: COLORS.goldSoft, textTransform: "uppercase", fontFamily: "Helvetica, sans-serif", marginBottom: 10 }}>Available Entries</div>
-        </div>
+       {/* Today's Focus */}
+{(() => {
+  const allEntries = getEntriesForPath(state.readingPath);
+  const completedSet = new Set(state.completedDays);
+  const nextEntry = allEntries.find((e) => !completedSet.has(e.id));
+  const upNextEntry = nextEntry ? allEntries[allEntries.indexOf(nextEntry) + 1] : null;
+  const allDone = !nextEntry;
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {entries.map((e) => {
-            const done = state.completedDays.includes(e.id);
-            const bookmarked = state.bookmarks.includes(e.id);
-            return (
-              <button
-                key={e.id}
-                onClick={() => { setActiveEntryId(e.id); setScreen("entry"); }}
-                style={{
-                  background: COLORS.charcoal,
-                  border: done ? "1px solid " + COLORS.goldDim : "1px solid " + COLORS.border,
-                  borderRadius: 12,
-                  padding: "16px 18px",
-                  textAlign: "left",
-                  cursor: "pointer",
-                  color: COLORS.cream,
-                  fontFamily: "inherit",
-                  transition: "0.15s",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-                  <div style={{
-                    width: 36, height: 36, flexShrink: 0, borderRadius: 8,
-                    background: done ? COLORS.gold : COLORS.charcoalLight,
-                    border: done ? "none" : "1px solid " + COLORS.border,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    color: done ? COLORS.navyDeep : COLORS.gold, fontWeight: 700, fontSize: 14,
-                    fontFamily: "Helvetica, sans-serif"
-                  }}>
-                    {done ? <Check size={16} /> : e.day}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    {e.trackName && <div style={{ fontSize: 10, letterSpacing: 2, color: COLORS.goldSoft, textTransform: "uppercase", fontFamily: "Helvetica, sans-serif", marginBottom: 3 }}>{e.trackName}</div>}
-                    <div style={{ fontSize: 15, fontWeight: 700, color: COLORS.cream, marginBottom: 4, lineHeight: 1.3 }}>{e.reading}</div>
-                    <div style={{ fontSize: 13, color: COLORS.muted, fontStyle: "italic", lineHeight: 1.5 }}>{e.hook}</div>
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                    {bookmarked && <Bookmark size={14} color={COLORS.gold} fill={COLORS.gold} />}
-                    <ArrowRight size={16} color={COLORS.goldSoft} />
-                  </div>
-                </div>
-              </button>
-            );
-          })}
+  if (allDone) {
+    return (
+      <div style={{
+        background: "linear-gradient(135deg, #1A2238, #222C45)",
+        border: "1px solid " + COLORS.gold,
+        borderRadius: 16, padding: "32px 24px", textAlign: "center",
+        boxShadow: "0 4px 32px rgba(201, 169, 97, 0.15)",
+      }}>
+        <div style={{ fontSize: 32, marginBottom: 12 }}>🙏</div>
+        <div style={{ fontSize: 10, letterSpacing: 4, color: COLORS.gold, textTransform: "uppercase", fontFamily: "Helvetica, sans-serif", marginBottom: 10 }}>You finished this path</div>
+        <h2 style={{ margin: "0 0 12px", fontSize: 22, fontWeight: 400, color: COLORS.cream, lineHeight: 1.3 }}>
+          Well done, good and faithful servant.
+        </h2>
+        <p style={{ margin: "0 0 20px", fontSize: 14, color: COLORS.muted, lineHeight: 1.7, fontStyle: "italic" }}>
+          "Let us not become weary in doing good, for at the proper time we will reap a harvest if we do not give up." — Galatians 6:9
+        </p>
+        <div style={{ width: 40, height: 1, background: COLORS.goldDim, margin: "0 auto 20px" }} />
+        <p style={{ margin: 0, fontSize: 13, color: COLORS.muted, lineHeight: 1.6 }}>
+          More content is on the way. Keep your notes and bookmarks -- your journey here is saved.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {/* Today label */}
+      <div style={{ fontSize: 10, letterSpacing: 3, color: COLORS.goldSoft, textTransform: "uppercase", fontFamily: "Helvetica, sans-serif", marginBottom: 10 }}>
+        Today's Focus
+      </div>
+
+      {/* Main entry card */}
+      <button
+        onClick={() => { setActiveEntryId(nextEntry.id); setScreen("entry"); }}
+        style={{
+          width: "100%",
+          background: "linear-gradient(135deg, " + COLORS.charcoal + ", " + COLORS.charcoalLight + ")",
+          border: "1px solid " + COLORS.gold,
+          borderRadius: 16, padding: "22px 20px",
+          textAlign: "left", cursor: "pointer",
+          color: COLORS.cream, fontFamily: "inherit",
+          boxShadow: "0 4px 24px rgba(201, 169, 97, 0.1)",
+          marginBottom: 12,
+          display: "block",
+        }}
+      >
+        {nextEntry.trackName && (
+          <div style={{ fontSize: 10, letterSpacing: 3, color: COLORS.gold, textTransform: "uppercase", fontFamily: "Helvetica, sans-serif", marginBottom: 6 }}>
+            {nextEntry.trackName}
+          </div>
+        )}
+        <div style={{ fontSize: 18, fontWeight: 700, color: COLORS.cream, marginBottom: 8, lineHeight: 1.3 }}>
+          {nextEntry.reading}
         </div>
+        <div style={{ fontSize: 14, color: COLORS.muted, fontStyle: "italic", lineHeight: 1.6, marginBottom: 16 }}>
+          {nextEntry.hook}
+        </div>
+        <div style={{
+          display: "inline-flex", alignItems: "center", gap: 6,
+          background: COLORS.gold, color: COLORS.navyDeep,
+          padding: "8px 16px", borderRadius: 999,
+          fontSize: 11, fontWeight: 700, letterSpacing: 2,
+          textTransform: "uppercase", fontFamily: "Helvetica, sans-serif",
+        }}>
+          Open Today's Reading
+          <ArrowRight size={13} />
+        </div>
+      </button>
+
+      {/* Up Next */}
+      {upNextEntry && (
+        <div>
+          <div style={{ fontSize: 10, letterSpacing: 3, color: COLORS.muted, textTransform: "uppercase", fontFamily: "Helvetica, sans-serif", marginBottom: 8 }}>
+            Up Next
+          </div>
+          <button
+            onClick={() => { setActiveEntryId(upNextEntry.id); setScreen("entry"); }}
+            style={{
+              width: "100%",
+              background: COLORS.charcoal,
+              border: "1px solid " + COLORS.border,
+              borderRadius: 12, padding: "14px 16px",
+              textAlign: "left", cursor: "pointer",
+              color: COLORS.cream, fontFamily: "inherit",
+              display: "flex", alignItems: "center", gap: 12,
+              opacity: 0.75,
+            }}
+          >
+            <div style={{ flex: 1 }}>
+              {upNextEntry.trackName && (
+                <div style={{ fontSize: 9, letterSpacing: 2, color: COLORS.goldSoft, textTransform: "uppercase", fontFamily: "Helvetica, sans-serif", marginBottom: 3 }}>
+                  {upNextEntry.trackName}
+                </div>
+              )}
+              <div style={{ fontSize: 14, fontWeight: 700, color: COLORS.cream, marginBottom: 3 }}>
+                {upNextEntry.reading}
+              </div>
+              <div style={{ fontSize: 12, color: COLORS.muted, fontStyle: "italic", lineHeight: 1.5 }}>
+                {upNextEntry.hook}
+              </div>
+            </div>
+            <ArrowRight size={14} color={COLORS.muted} />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+})()}
 
         {/* Footer Nav */}
         <div style={{ marginTop: 28, paddingTop: 20, borderTop: "1px solid " + COLORS.borderSoft, display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
