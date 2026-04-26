@@ -23,13 +23,19 @@ const COLORS = {
 };
 
 const USER_TYPES = [
-  { id: "founder", label: "Founder", desc: "Building something from zero" },
+  { id: "entrepreneur", label: "Entrepreneur", desc: "Multiple ventures, always building" },
   { id: "executive", label: "Executive", desc: "Leading at scale" },
   { id: "creative", label: "Creative", desc: "Building through craft and storytelling" },
-  { id: "entrepreneur", label: "Entrepreneur", desc: "Multiple ventures, always building" },
 ];
 
 const READING_PATHS = [
+  {
+    id: "thematic",
+    name: "The Builder's Path",
+    tagline: "Scripture organized around what you actually face as a builder.",
+    description: "Built around the challenges every builder faces: Vision, Leadership, Money, Faith Under Pressure, and Wisdom. Drawn from across the whole Bible. Best if you want depth on the topics that shape how you lead, decide, and build.",
+    daysApprox: 600,
+  },
   {
     id: "chronological",
     name: "Chronological",
@@ -43,20 +49,6 @@ const READING_PATHS = [
     tagline: "Each book of the Bible, start to finish, with depth.",
     description: "Move through one book at a time -- understanding its author, audience, and message before moving to the next. Slower, more thorough. Best if you want to genuinely know each book rather than skim across many.",
     daysApprox: 1189,
-  },
-  {
-    id: "thematic",
-    name: "Thematic Tracks",
-    tagline: "Scripture organized around what you actually face daily.",
-    description: "Five tracks built for the entrepreneur mind: Vision, Leadership, Money, Faith Under Pressure, and Wisdom. Pulls passages from across the whole Bible. Best if you want immediate, applicable depth on the topics that matter most to how you build.",
-    daysApprox: 600,
-  },
-  {
-    id: "old_new",
-    name: "Old + New Together",
-    tagline: "An Old Testament passage and a New Testament passage, paired.",
-    description: "Read a passage from the Old Testament and one from the New each day -- chosen to connect or contrast. Best if you want a balanced view and to see how the whole Bible tells one continuous story.",
-    daysApprox: 730,
   },
 ];
 
@@ -542,7 +534,7 @@ function Step0({ draft, setDraft }) {
     <div>
       <div style={{ fontSize: 11, letterSpacing: 4, color: COLORS.gold, textTransform: "uppercase", fontFamily: "Helvetica, sans-serif", marginBottom: 8 }}>Step 1 of 3</div>
       <h1 style={{ margin: "0 0 12px", fontSize: 32, fontWeight: 400, lineHeight: 1.2, letterSpacing: -0.5 }}>Who are you?</h1>
-      <p style={{ margin: "0 0 32px", color: COLORS.muted, fontSize: 15, lineHeight: 1.6 }}>Your role shapes how scripture is framed. The principles are the same. The lens shifts.</p>
+      <p style={{ margin: "0 0 32px", color: COLORS.muted, fontSize: 15, lineHeight: 1.6 }}>This becomes your identity in the Builder's Bible community.</p>
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {USER_TYPES.map((u) => {
           const sel = draft.userType === u.id;
