@@ -1,5 +1,8 @@
+'use client';
+
 import { useState, useEffect } from "react";
 import { BookOpen, Bookmark, NotebookPen, Settings, Flame, ChevronLeft, Check, Lock, ArrowRight, Sparkles, Target, Crown, Coins, Compass, Flame as FireIcon } from "lucide-react";
+import { createClient } from '../lib/supabase';
 
 /* ============ CONSTANTS ============ */
 
@@ -320,6 +323,8 @@ function getEntriesForPath(pathId) {
 /* ============ APP ============ */
 
 export default function App() {
+  const [user, setUser] = useState(null);
+  const [authLoaded, setAuthLoaded] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [state, setState] = useState({
     onboarded: false,
@@ -339,18 +344,34 @@ export default function App() {
 
   // Load
   useEffect(() => {
-    function load() {
-      try {
-        const saved = localStorage.getItem(STORAGE_KEY);
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          setState(parsed);
-          if (parsed.onboarded) setScreen("dashboard");
+    const supabase = createClient();
+  
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setAuthLoaded(true);
+      if (session?.user) {
+        function load() {
+          try {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+              const parsed = JSON.parse(saved);
+              setState(parsed);
+              if (parsed.onboarded) setScreen('dashboard');
+            }
+          } catch (e) {}
+          setLoaded(true);
         }
-      } catch (e) {}
-      setLoaded(true);
-    }
-    load();
+        load();
+      } else {
+        setLoaded(true);
+      }
+    });
+  
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+  
+    return () => subscription.unsubscribe();
   }, []);
 
   // Save
@@ -361,12 +382,16 @@ export default function App() {
     } catch (e) {}
   };
 
-  if (!loaded) {
+  if (!authLoaded || !loaded) {
     return (
-      <div style={{ minHeight: "100vh", background: COLORS.navyDeep, display: "flex", alignItems: "center", justifyContent: "center", color: COLORS.gold, fontFamily: "Georgia, serif", fontStyle: "italic" }}>
+      <div style={{ minHeight: '100vh', background: '#091322', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#C9A961', fontFamily: 'Georgia, serif', fontStyle: 'italic' }}>
         Loading...
       </div>
     );
+  }
+  
+  if (!user) {
+    return <AuthScreen onAuth={setUser} />;
   }
 
   /* ===== ONBOARDING ===== */
@@ -1091,6 +1116,143 @@ function EmptyState({ text }) {
   return (
     <div style={{ textAlign: "center", padding: "60px 20px", color: COLORS.muted, fontStyle: "italic", fontSize: 14, lineHeight: 1.7 }}>
       {text}
+    </div>
+  );
+}
+
+function AuthScreen({ onAuth }) {
+  const [mode, setMode] = useState('welcome');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+
+  const handleSignUp = async () => {
+    if (!email || !password || !fullName) { setError('Please fill in all fields.'); return; }
+    setLoading(true); setError('');
+    const supabase = createClient();
+    const { error } = await supabase.auth.signUp({
+      email, password, options: { data: { full_name: fullName } }
+    });
+    if (error) { setError(error.message); }
+    else { setMessage('Check your email to confirm your account, then log in.'); setMode('confirm'); }
+    setLoading(false);
+  };
+
+  const handleSignIn = async () => {
+    if (!email || !password) { setError('Please enter your email and password.'); return; }
+    setLoading(true); setError('');
+    const supabase = createClient();
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) { setError(error.message); }
+    else { onAuth(data.user); }
+    setLoading(false);
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email) { setError('Enter your email above first.'); return; }
+    setLoading(true); setError('');
+    const supabase = createClient();
+    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    if (error) { setError(error.message); }
+    else { setMessage('Password reset email sent. Check your inbox.'); }
+    setLoading(false);
+  };
+
+  const aBtn = {
+    width: '100%', padding: '15px',
+    background: 'linear-gradient(135deg, #C9A961, #D4B870)',
+    color: '#091322', border: 'none', borderRadius: 8,
+    fontFamily: 'Georgia, serif', fontSize: 14, fontWeight: 700,
+    letterSpacing: 1.5, textTransform: 'uppercase', cursor: 'pointer',
+  };
+  const oBtn = {
+    width: '100%', padding: '15px', background: 'transparent',
+    color: '#C9A961', border: '1px solid #C9A961', borderRadius: 8,
+    fontFamily: 'Georgia, serif', fontSize: 14, fontWeight: 700,
+    letterSpacing: 1.5, textTransform: 'uppercase', cursor: 'pointer',
+  };
+  const gBtn = {
+    width: '100%', padding: '10px', background: 'transparent',
+    border: 'none', color: '#8B92A8', fontFamily: 'Helvetica, sans-serif',
+    fontSize: 13, cursor: 'pointer', textAlign: 'center',
+  };
+
+  return (
+    <div style={{ minHeight: '100vh', background: '#091322', color: '#F5F1E8', fontFamily: 'Georgia, serif', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px 20px' }}>
+      <div style={{ width: '100%', maxWidth: 400 }}>
+        <div style={{ textAlign: 'center', marginBottom: 40 }}>
+          <div style={{ fontSize: 11, letterSpacing: 4, color: '#C9A961', textTransform: 'uppercase', fontFamily: 'Helvetica, sans-serif', marginBottom: 8 }}>The Builder's Bible</div>
+          <h1 style={{ margin: 0, fontSize: 32, fontWeight: 400, color: '#F5F1E8', letterSpacing: -0.5 }}>
+            {mode === 'welcome' && 'Welcome'}
+            {mode === 'signup' && 'Create Account'}
+            {mode === 'signin' && 'Welcome Back'}
+            {mode === 'confirm' && 'Check Your Email'}
+            {mode === 'forgot' && 'Reset Password'}
+          </h1>
+          <div style={{ width: 40, height: 2, background: '#C9A961', margin: '12px auto 0' }} />
+        </div>
+
+        {mode === 'confirm' && (
+          <div style={{ textAlign: 'center' }}>
+            <p style={{ color: '#8B92A8', fontSize: 15, lineHeight: 1.7, marginBottom: 28 }}>{message}</p>
+            <button onClick={() => setMode('signin')} style={aBtn}>Go to Login</button>
+          </div>
+        )}
+
+        {mode === 'welcome' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <p style={{ color: '#8B92A8', fontSize: 15, lineHeight: 1.7, textAlign: 'center', marginBottom: 8, fontStyle: 'italic' }}>Scripture built for the way you build.</p>
+            <button onClick={() => setMode('signup')} style={aBtn}>Create Account</button>
+            <button onClick={() => setMode('signin')} style={oBtn}>Log In</button>
+          </div>
+        )}
+
+        {mode === 'signup' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {[['Full Name', fullName, setFullName, 'Patrick Rodriguez', 'text'], ['Email', email, setEmail, 'you@example.com', 'email'], ['Password', password, setPassword, 'Min. 6 characters', 'password']].map(([label, val, setter, ph, type]) => (
+              <div key={label}>
+                <div style={{ fontSize: 10, letterSpacing: 3, color: '#8B92A8', textTransform: 'uppercase', fontFamily: 'Helvetica, sans-serif', marginBottom: 6 }}>{label}</div>
+                <input type={type} value={val} onChange={e => setter(e.target.value)} placeholder={ph} style={{ width: '100%', padding: '13px 14px', background: '#1A2238', border: '1px solid #2A3450', borderRadius: 8, color: '#F5F1E8', fontFamily: 'Georgia, serif', fontSize: 14, outline: 'none', boxSizing: 'border-box' }} />
+              </div>
+            ))}
+            {error && <div style={{ background: 'rgba(200,80,80,0.1)', border: '1px solid rgba(200,80,80,0.3)', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#E88A8A' }}>{error}</div>}
+            <button onClick={handleSignUp} disabled={loading} style={aBtn}>{loading ? 'Creating...' : 'Create Account'}</button>
+            <button onClick={() => { setMode('welcome'); setError(''); }} style={gBtn}>Back</button>
+          </div>
+        )}
+
+        {mode === 'signin' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {[['Email', email, setEmail, 'you@example.com', 'email'], ['Password', password, setPassword, 'Your password', 'password']].map(([label, val, setter, ph, type]) => (
+              <div key={label}>
+                <div style={{ fontSize: 10, letterSpacing: 3, color: '#8B92A8', textTransform: 'uppercase', fontFamily: 'Helvetica, sans-serif', marginBottom: 6 }}>{label}</div>
+                <input type={type} value={val} onChange={e => setter(e.target.value)} placeholder={ph} style={{ width: '100%', padding: '13px 14px', background: '#1A2238', border: '1px solid #2A3450', borderRadius: 8, color: '#F5F1E8', fontFamily: 'Georgia, serif', fontSize: 14, outline: 'none', boxSizing: 'border-box' }} />
+              </div>
+            ))}
+            {error && <div style={{ background: 'rgba(200,80,80,0.1)', border: '1px solid rgba(200,80,80,0.3)', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#E88A8A' }}>{error}</div>}
+            {message && <p style={{ color: '#C9A961', fontSize: 13, textAlign: 'center' }}>{message}</p>}
+            <button onClick={handleSignIn} disabled={loading} style={aBtn}>{loading ? 'Logging in...' : 'Log In'}</button>
+            <button onClick={() => { setMode('forgot'); setError(''); }} style={gBtn}>Forgot password?</button>
+            <button onClick={() => { setMode('welcome'); setError(''); }} style={gBtn}>Back</button>
+          </div>
+        )}
+
+        {mode === 'forgot' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div>
+              <div style={{ fontSize: 10, letterSpacing: 3, color: '#8B92A8', textTransform: 'uppercase', fontFamily: 'Helvetica, sans-serif', marginBottom: 6 }}>Email</div>
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" style={{ width: '100%', padding: '13px 14px', background: '#1A2238', border: '1px solid #2A3450', borderRadius: 8, color: '#F5F1E8', fontFamily: 'Georgia, serif', fontSize: 14, outline: 'none', boxSizing: 'border-box' }} />
+            </div>
+            {error && <div style={{ background: 'rgba(200,80,80,0.1)', border: '1px solid rgba(200,80,80,0.3)', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#E88A8A' }}>{error}</div>}
+            {message && <p style={{ color: '#C9A961', fontSize: 13, textAlign: 'center' }}>{message}</p>}
+            <button onClick={handleForgotPassword} disabled={loading} style={aBtn}>{loading ? 'Sending...' : 'Send Reset Email'}</button>
+            <button onClick={() => { setMode('signin'); setError(''); setMessage(''); }} style={gBtn}>Back to Login</button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
