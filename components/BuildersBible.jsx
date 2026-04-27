@@ -1116,6 +1116,10 @@ export default function App() {
         setUser(session?.user ?? null);
         return;
       }
+      if (event === 'TOKEN_REFRESHED') {
+        setUser(session?.user ?? null);
+        return;
+      }
       loadData(session?.user ?? null);
     });
   
@@ -1623,9 +1627,11 @@ function EntryView({ entryId, state, persist, setScreen, user }) {
   const completed = state.completedDays.includes(entry.id);
   const bookmarked = state.bookmarks.includes(entry.id);
   const [noteText, setNoteText] = useState(state.notes[entry.id] || "");
+  const [preStudyNote, setPreStudyNote] = useState(state.preStudyNotes?.[entry.id] || "");
 
   const unlock = async () => {
-    const next = { ...state, unlockedDays: [...state.unlockedDays, entry.id] };
+    const preStudyNotes = { ...(state.preStudyNotes || {}), [entry.id]: preStudyNote };
+    const next = { ...state, unlockedDays: [...state.unlockedDays, entry.id], preStudyNotes };
     persist(next, user);
     if (user?.id) await unlockDay(user.id, entry.id);
   };
@@ -1697,6 +1703,32 @@ function EntryView({ entryId, state, persist, setScreen, user }) {
         {!unlocked ? (
           /* Locked state */
           <div>
+                        {/* Pre-study reflection */}
+<div style={{ marginBottom: 20 }}>
+  <div style={{ fontSize: 10, letterSpacing: 3, color: COLORS.goldSoft, textTransform: "uppercase", fontFamily: "Helvetica, sans-serif", marginBottom: 6 }}>
+    What did you take from this passage?
+  </div>
+  <textarea
+    value={preStudyNote}
+    onChange={(e) => setPreStudyNote(e.target.value)}
+    placeholder="Write your own thoughts before unlocking the study..."
+    style={{
+      width: "100%",
+      minHeight: 120,
+      background: COLORS.charcoal,
+      border: "1px solid " + COLORS.border,
+      borderRadius: 10,
+      padding: "12px 14px",
+      color: COLORS.cream,
+      fontFamily: "Georgia, serif",
+      fontSize: 14,
+      lineHeight: 1.6,
+      resize: "vertical",
+      outline: "none",
+      boxSizing: "border-box",
+    }}
+  />
+</div>
             <div style={{ position: "relative", marginBottom: 20 }}>
               {/* Preview cards */}
               <div style={{ display: "flex", flexDirection: "column", gap: 12, opacity: 0.35, filter: "blur(2px)", pointerEvents: "none" }}>
@@ -1713,33 +1745,51 @@ function EntryView({ entryId, state, persist, setScreen, user }) {
               </div>
             </div>
 
-            <button
-              onClick={unlock}
-              style={{
-                width: "100%",
-                padding: "18px",
-                background: "linear-gradient(135deg, " + COLORS.gold + ", " + COLORS.goldSoft + ")",
-                color: COLORS.navyDeep,
-                border: "none",
-                borderRadius: 10,
-                fontFamily: "Georgia, serif",
-                fontSize: 14,
-                fontWeight: 700,
-                letterSpacing: 2,
-                cursor: "pointer",
-                textTransform: "uppercase",
-                boxShadow: "0 4px 20px rgba(201, 169, 97, 0.2)",
-              }}
-            >
-              I have read it
-            </button>
-            <p style={{ margin: "12px 0 0", fontSize: 12, color: COLORS.muted, textAlign: "center", fontStyle: "italic" }}>
-              Open your Bible. Read the passage. Then tap to unlock the reflection.
-            </p>
+
+
+<button
+  onClick={unlock}
+  style={{
+    width: "100%",
+    padding: "18px",
+    background: "linear-gradient(135deg, " + COLORS.gold + ", " + COLORS.goldSoft + ")",
+    color: COLORS.navyDeep,
+    border: "none",
+    borderRadius: 10,
+    fontFamily: "Georgia, serif",
+    fontSize: 14,
+    fontWeight: 700,
+    letterSpacing: 2,
+    cursor: "pointer",
+    textTransform: "uppercase",
+    boxShadow: "0 4px 20px rgba(201, 169, 97, 0.2)",
+  }}
+>
+  I have read it
+</button>
+<p style={{ margin: "12px 0 0", fontSize: 12, color: COLORS.muted, textAlign: "center", fontStyle: "italic" }}>
+  Open your Bible. Read the passage. Write your thoughts. Then unlock the study.
+</p>
           </div>
         ) : (
           /* Unlocked state */
           <div style={{ animation: "fadeIn 0.5s ease" }}>
+            {state.preStudyNotes?.[entry.id] && (
+  <div style={{
+    background: "linear-gradient(135deg, " + COLORS.charcoal + ", " + COLORS.charcoalLight + ")",
+    border: "1px solid " + COLORS.goldDim,
+    borderRadius: 12,
+    padding: "16px 18px",
+    marginBottom: 12,
+  }}>
+    <div style={{ fontSize: 10, letterSpacing: 3, color: COLORS.gold, textTransform: "uppercase", fontFamily: "Helvetica, sans-serif", marginBottom: 8 }}>
+      Your Thoughts Before the Study
+    </div>
+    <p style={{ margin: 0, fontSize: 14, lineHeight: 1.75, color: COLORS.cream, fontStyle: "italic" }}>
+      {state.preStudyNotes[entry.id]}
+    </p>
+  </div>
+)}
             <Section label="Historical Context" text={entry.context} />
             <Section label="Key Principle" text={entry.principle} highlight />
             <Section label="Deep Dive" text={entry.deepDive} />
