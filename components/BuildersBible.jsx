@@ -1098,9 +1098,25 @@ export default function App() {
       setAuthLoaded(true);
       try {
         const data = await loadUserData(sessionUser.id);
-        console.log('loaded data:', data);
-        setState(data);
-        if (data.onboarded) setScreen('dashboard');
+console.log('loaded data:', data);
+
+// Check if streak should be reset
+if (data.lastCompleted) {
+  const today = new Date().toDateString();
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = yesterday.toDateString();
+  
+  if (data.lastCompleted !== today && data.lastCompleted !== yesterdayStr) {
+    data.streak = 0;
+    if (sessionUser?.id) {
+      await saveStreak(sessionUser.id, 0, data.lastCompleted);
+    }
+  }
+}
+
+setState(data);
+if (data.onboarded) setScreen('dashboard');
       } catch (e) {
         console.error('Error loading user data:', e);
       }
@@ -1430,6 +1446,9 @@ function Dashboard({ state, persist, setScreen, setActiveEntryId, user }) {
           <div>
             <div style={{ fontSize: 10, letterSpacing: 4, color: COLORS.goldSoft, textTransform: "uppercase", fontFamily: "Helvetica, sans-serif", marginBottom: 4 }}>The Builder's Bible</div>
             <h1 style={{ margin: 0, fontSize: 22, fontWeight: 400, color: COLORS.cream, letterSpacing: -0.3 }}>Today</h1>
+<div style={{ fontSize: 12, color: COLORS.muted, fontFamily: "Helvetica, sans-serif", letterSpacing: 1, marginTop: 2 }}>
+  {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+</div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 12px", background: COLORS.charcoalLight, borderRadius: 999, border: "1px solid " + COLORS.border }}>
             <Flame size={14} color={COLORS.gold} />
@@ -1646,7 +1665,18 @@ function EntryView({ entryId, state, persist, setScreen, user }) {
       newCompleted = state.completedDays.filter((id) => id !== entry.id);
     } else {
       newCompleted = [...state.completedDays, entry.id];
-      if (state.lastCompleted !== today) newStreak = state.streak + 1;
+      if (state.lastCompleted !== today) {
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = yesterday.toDateString();
+        if (state.lastCompleted === yesterdayStr) {
+          newStreak = state.streak + 1;
+        } else if (!state.lastCompleted) {
+          newStreak = 1;
+        } else {
+          newStreak = 1;
+        }
+      }
       setCelebrating(true);
       setTimeout(() => setCelebrating(false), 3000);
     }
@@ -1842,22 +1872,26 @@ function EntryView({ entryId, state, persist, setScreen, user }) {
         ) : (
           /* Unlocked state */
           <div style={{ animation: "fadeIn 0.5s ease" }}>
-            {state.preStudyNotes?.[entry.id] && (
-  <div style={{
-    background: "linear-gradient(135deg, " + COLORS.charcoal + ", " + COLORS.charcoalLight + ")",
-    border: "1px solid " + COLORS.goldDim,
-    borderRadius: 12,
-    padding: "16px 18px",
-    marginBottom: 12,
-  }}>
-    <div style={{ fontSize: 10, letterSpacing: 3, color: COLORS.gold, textTransform: "uppercase", fontFamily: "Helvetica, sans-serif", marginBottom: 8 }}>
-      Your Thoughts Before the Study
-    </div>
+            <div style={{
+  background: "linear-gradient(135deg, " + COLORS.charcoal + ", " + COLORS.charcoalLight + ")",
+  border: "1px solid " + COLORS.goldDim,
+  borderRadius: 12,
+  padding: "16px 18px",
+  marginBottom: 12,
+}}>
+  <div style={{ fontSize: 10, letterSpacing: 3, color: COLORS.gold, textTransform: "uppercase", fontFamily: "Helvetica, sans-serif", marginBottom: 8 }}>
+    Your Thoughts Before the Study
+  </div>
+  {state.preStudyNotes?.[entry.id] ? (
     <p style={{ margin: 0, fontSize: 14, lineHeight: 1.75, color: COLORS.cream, fontStyle: "italic" }}>
       {state.preStudyNotes[entry.id]}
     </p>
-  </div>
-)}
+  ) : (
+    <p style={{ margin: 0, fontSize: 13, lineHeight: 1.75, color: COLORS.muted, fontStyle: "italic" }}>
+      You did not write anything before unlocking. Next time, take a moment to write your initial thoughts before tapping I've Read It.
+    </p>
+  )}
+</div>
             <Section label="Historical Context" text={entry.context} />
             <Section label="Key Principle" text={entry.principle} highlight />
             <Section label="Deep Dive" text={entry.deepDive} />
