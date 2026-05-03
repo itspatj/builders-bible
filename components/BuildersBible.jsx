@@ -1098,25 +1098,9 @@ export default function App() {
       setAuthLoaded(true);
       try {
         const data = await loadUserData(sessionUser.id);
-console.log('loaded data:', data);
-
-// Check if streak should be reset
-if (data.lastCompleted) {
-  const today = new Date().toDateString();
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayStr = yesterday.toDateString();
-  
-  if (data.lastCompleted !== today && data.lastCompleted !== yesterdayStr) {
-    data.streak = 0;
-    if (sessionUser?.id) {
-      await saveStreak(sessionUser.id, 0, data.lastCompleted);
-    }
-  }
-}
-
-setState(data);
-if (data.onboarded) setScreen('dashboard');
+        console.log('loaded data:', data);
+        setState(data);
+        if (data.onboarded) setScreen('dashboard');
       } catch (e) {
         console.error('Error loading user data:', e);
       }
@@ -1446,9 +1430,6 @@ function Dashboard({ state, persist, setScreen, setActiveEntryId, user }) {
           <div>
             <div style={{ fontSize: 10, letterSpacing: 4, color: COLORS.goldSoft, textTransform: "uppercase", fontFamily: "Helvetica, sans-serif", marginBottom: 4 }}>The Builder's Bible</div>
             <h1 style={{ margin: 0, fontSize: 22, fontWeight: 400, color: COLORS.cream, letterSpacing: -0.3 }}>Today</h1>
-<div style={{ fontSize: 12, color: COLORS.muted, fontFamily: "Helvetica, sans-serif", letterSpacing: 1, marginTop: 2 }}>
-  {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
-</div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 12px", background: COLORS.charcoalLight, borderRadius: 999, border: "1px solid " + COLORS.border }}>
             <Flame size={14} color={COLORS.gold} />
@@ -1649,12 +1630,20 @@ function EntryView({ entryId, state, persist, setScreen, user }) {
   const [noteText, setNoteText] = useState(state.notes[entry.id] || "");
   const [preStudyNote, setPreStudyNote] = useState(state.preStudyNotes?.[entry.id] || "");
   const [celebrating, setCelebrating] = useState(false);
+  const [studyStep, setStudyStep] = useState(0);
+  const STUDY_STEPS = 7;
 
   const unlock = async () => {
     const preStudyNotes = { ...(state.preStudyNotes || {}), [entry.id]: preStudyNote };
     const next = { ...state, unlockedDays: [...state.unlockedDays, entry.id], preStudyNotes };
     persist(next, user);
     if (user?.id) await unlockDay(user.id, entry.id);
+  };
+
+  const savePreStudyNote = (text) => {
+    setPreStudyNote(text);
+    const preStudyNotes = { ...(state.preStudyNotes || {}), [entry.id]: text };
+    persist({ ...state, preStudyNotes }, user);
   };
 
   const toggleComplete = async () => {
@@ -1665,18 +1654,7 @@ function EntryView({ entryId, state, persist, setScreen, user }) {
       newCompleted = state.completedDays.filter((id) => id !== entry.id);
     } else {
       newCompleted = [...state.completedDays, entry.id];
-      if (state.lastCompleted !== today) {
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayStr = yesterday.toDateString();
-        if (state.lastCompleted === yesterdayStr) {
-          newStreak = state.streak + 1;
-        } else if (!state.lastCompleted) {
-          newStreak = 1;
-        } else {
-          newStreak = 1;
-        }
-      }
+      if (state.lastCompleted !== today) newStreak = state.streak + 1;
       setCelebrating(true);
       setTimeout(() => setCelebrating(false), 3000);
     }
@@ -1798,41 +1776,51 @@ function EntryView({ entryId, state, persist, setScreen, user }) {
           <p style={{ margin: 0, fontSize: 16, lineHeight: 1.6, color: COLORS.cream, fontStyle: "italic", fontFamily: "Georgia, serif" }}>{entry.hook}</p>
         </div>
 
+        {/* Pre-study reflection — persists through lock/unlock */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 10, letterSpacing: 3, color: COLORS.goldSoft, textTransform: "uppercase", fontFamily: "Helvetica, sans-serif", marginBottom: 6 }}>
+            What did you take from this passage?
+          </div>
+          <textarea
+            value={preStudyNote}
+            onChange={(e) => unlocked ? savePreStudyNote(e.target.value) : setPreStudyNote(e.target.value)}
+            placeholder="Write your own thoughts before unlocking the study..."
+            style={{
+              width: "100%",
+              minHeight: 100,
+              background: COLORS.charcoal,
+              border: "1px solid " + COLORS.border,
+              borderRadius: 10,
+              padding: "12px 14px",
+              color: COLORS.cream,
+              fontFamily: "Georgia, serif",
+              fontSize: 14,
+              lineHeight: 1.6,
+              resize: "vertical",
+              outline: "none",
+              boxSizing: "border-box",
+            }}
+          />
+        </div>
+
         {!unlocked ? (
           /* Locked state */
           <div>
-                        {/* Pre-study reflection */}
-<div style={{ marginBottom: 20 }}>
-  <div style={{ fontSize: 10, letterSpacing: 3, color: COLORS.goldSoft, textTransform: "uppercase", fontFamily: "Helvetica, sans-serif", marginBottom: 6 }}>
-    What did you take from this passage?
-  </div>
-  <textarea
-    value={preStudyNote}
-    onChange={(e) => setPreStudyNote(e.target.value)}
-    placeholder="Write your own thoughts before unlocking the study..."
-    style={{
-      width: "100%",
-      minHeight: 120,
-      background: COLORS.charcoal,
-      border: "1px solid " + COLORS.border,
-      borderRadius: 10,
-      padding: "12px 14px",
-      color: COLORS.cream,
-      fontFamily: "Georgia, serif",
-      fontSize: 14,
-      lineHeight: 1.6,
-      resize: "vertical",
-      outline: "none",
-      boxSizing: "border-box",
-    }}
-  />
-</div>
             <div style={{ position: "relative", marginBottom: 20 }}>
-              {/* Preview cards */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 12, opacity: 0.35, filter: "blur(2px)", pointerEvents: "none" }}>
-                <PreviewCard label="Historical Context" text={entry.contextPreview} />
-                <PreviewCard label="Key Principle" text={entry.principlePreview} />
-                <PreviewCard label="Deep Dive" text="Locked content will appear here..." />
+              {/* Blurred 7-step session preview */}
+              <div style={{ opacity: 0.3, filter: "blur(2.5px)", pointerEvents: "none" }}>
+                <div style={{ display: "flex", justifyContent: "center", gap: 7, marginBottom: 16 }}>
+                  {Array.from({ length: 7 }).map((_, i) => (
+                    <div key={i} style={{ width: i === 0 ? 22 : 8, height: 8, borderRadius: 999, background: i === 0 ? COLORS.gold : COLORS.border }} />
+                  ))}
+                </div>
+                {["Historical Context", "Key Principle Deep Dive", "Entrepreneur Application", "Sit With This"].map((label, i) => (
+                  <div key={i} style={{ background: COLORS.charcoal, border: "1px solid " + COLORS.border, borderRadius: 10, padding: "14px 16px", marginBottom: 8 }}>
+                    <div style={{ fontSize: 10, letterSpacing: 3, color: COLORS.goldSoft, textTransform: "uppercase", fontFamily: "Helvetica, sans-serif", marginBottom: 8 }}>{label}</div>
+                    <div style={{ height: 7, background: COLORS.border, borderRadius: 4, width: i % 2 === 0 ? "75%" : "65%" }} />
+                    <div style={{ height: 7, background: COLORS.border, borderRadius: 4, width: "45%", marginTop: 6 }} />
+                  </div>
+                ))}
               </div>
               {/* Lock overlay */}
               <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
@@ -1870,90 +1858,135 @@ function EntryView({ entryId, state, persist, setScreen, user }) {
 </p>
           </div>
         ) : (
-          /* Unlocked state */
+          /* Unlocked state — guided study session */
           <div style={{ animation: "fadeIn 0.5s ease" }}>
-            <div style={{
-  background: "linear-gradient(135deg, " + COLORS.charcoal + ", " + COLORS.charcoalLight + ")",
-  border: "1px solid " + COLORS.goldDim,
-  borderRadius: 12,
-  padding: "16px 18px",
-  marginBottom: 12,
-}}>
-  <div style={{ fontSize: 10, letterSpacing: 3, color: COLORS.gold, textTransform: "uppercase", fontFamily: "Helvetica, sans-serif", marginBottom: 8 }}>
-    Your Thoughts Before the Study
-  </div>
-  {state.preStudyNotes?.[entry.id] ? (
-    <p style={{ margin: 0, fontSize: 14, lineHeight: 1.75, color: COLORS.cream, fontStyle: "italic" }}>
-      {state.preStudyNotes[entry.id]}
-    </p>
-  ) : (
-    <p style={{ margin: 0, fontSize: 13, lineHeight: 1.75, color: COLORS.muted, fontStyle: "italic" }}>
-      You did not write anything before unlocking. Next time, take a moment to write your initial thoughts before tapping I've Read It.
-    </p>
-  )}
-</div>
-            <Section label="Historical Context" text={entry.context} />
-            <Section label="Key Principle" text={entry.principle} highlight />
-            <Section label="Deep Dive" text={entry.deepDive} />
-            <Section label="Entrepreneur Application" text={entry.application} />
 
-            {/* Question */}
-            <div style={{ background: COLORS.charcoal, border: "1px solid " + COLORS.goldDim, borderRadius: 12, padding: "18px 20px", marginBottom: 16 }}>
-              <div style={{ fontSize: 10, letterSpacing: 3, color: COLORS.gold, textTransform: "uppercase", fontFamily: "Helvetica, sans-serif", marginBottom: 8 }}>Sit With This</div>
-              <p style={{ margin: 0, fontSize: 15, lineHeight: 1.7, color: COLORS.cream, fontStyle: "italic" }}>{entry.question}</p>
+            {/* Dot indicators */}
+            <div style={{ display: "flex", justifyContent: "center", gap: 7, marginBottom: 28 }}>
+              {Array.from({ length: STUDY_STEPS }).map((_, i) => (
+                <div key={i} style={{
+                  width: i === studyStep ? 22 : 8,
+                  height: 8,
+                  borderRadius: 999,
+                  background: i <= studyStep ? COLORS.gold : COLORS.border,
+                  transition: "all 0.3s ease",
+                }} />
+              ))}
             </div>
 
-            {/* Prayer */}
-            <div style={{ background: "linear-gradient(135deg, " + COLORS.charcoal + ", " + COLORS.charcoalLight + ")", border: "1px solid " + COLORS.border, borderRadius: 12, padding: "18px 20px", marginBottom: 24 }}>
-              <div style={{ fontSize: 10, letterSpacing: 3, color: COLORS.goldSoft, textTransform: "uppercase", fontFamily: "Helvetica, sans-serif", marginBottom: 8 }}>Closing Prayer</div>
-              <p style={{ margin: 0, fontSize: 15, lineHeight: 1.7, color: COLORS.cream }}>{entry.prayer}</p>
+            {/* Step content */}
+            <div key={studyStep} style={{ animation: "fadeIn 0.35s ease", minHeight: 260 }}>
+
+              {studyStep === 0 && (
+                <Section label="Historical Context" text={entry.context} />
+              )}
+
+              {studyStep === 1 && (
+                <div>
+                  <Section label="Key Principle" text={entry.principle} highlight />
+                  <Section label="Deep Dive" text={entry.deepDive} />
+                </div>
+              )}
+
+              {studyStep === 2 && (
+                <Section label="Entrepreneur Application" text={entry.application} />
+              )}
+
+              {studyStep === 3 && (
+                <div style={{ background: COLORS.charcoal, border: "1px solid " + COLORS.goldDim, borderRadius: 12, padding: "22px 20px" }}>
+                  <div style={{ fontSize: 10, letterSpacing: 3, color: COLORS.gold, textTransform: "uppercase", fontFamily: "Helvetica, sans-serif", marginBottom: 12 }}>Sit With This</div>
+                  <p style={{ margin: 0, fontSize: 16, lineHeight: 1.75, color: COLORS.cream, fontStyle: "italic" }}>{entry.question}</p>
+                </div>
+              )}
+
+              {studyStep === 4 && (
+                <div style={{ background: "linear-gradient(135deg, " + COLORS.charcoal + ", " + COLORS.charcoalLight + ")", border: "1px solid " + COLORS.border, borderRadius: 12, padding: "22px 20px" }}>
+                  <div style={{ fontSize: 10, letterSpacing: 3, color: COLORS.goldSoft, textTransform: "uppercase", fontFamily: "Helvetica, sans-serif", marginBottom: 12 }}>Closing Prayer</div>
+                  <p style={{ margin: 0, fontSize: 15, lineHeight: 1.75, color: COLORS.cream }}>{entry.prayer}</p>
+                </div>
+              )}
+
+              {studyStep === 5 && (
+                <div>
+                  <div style={{ fontSize: 10, letterSpacing: 3, color: COLORS.goldSoft, textTransform: "uppercase", fontFamily: "Helvetica, sans-serif", marginBottom: 10 }}>Your Notes</div>
+                  <textarea
+                    value={noteText}
+                    onChange={(e) => saveNote(e.target.value)}
+                    placeholder="Reflections, questions, what stood out to you..."
+                    style={{
+                      width: "100%",
+                      minHeight: 180,
+                      background: COLORS.charcoal,
+                      border: "1px solid " + COLORS.border,
+                      borderRadius: 10,
+                      padding: "14px 16px",
+                      color: COLORS.cream,
+                      fontFamily: "Georgia, serif",
+                      fontSize: 14,
+                      lineHeight: 1.6,
+                      resize: "vertical",
+                      outline: "none",
+                      boxSizing: "border-box",
+                    }}
+                  />
+                </div>
+              )}
+
+              {studyStep === 6 && (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 24, gap: 20 }}>
+                  <div style={{ fontSize: 40 }}>🙏</div>
+                  <div style={{ fontSize: 18, color: COLORS.cream, fontFamily: "Georgia, serif", textAlign: "center", lineHeight: 1.5, maxWidth: 280 }}>
+                    You showed up today.
+                  </div>
+                  <div style={{ fontSize: 14, color: COLORS.muted, fontFamily: "Georgia, serif", fontStyle: "italic", textAlign: "center", maxWidth: 260, lineHeight: 1.6 }}>
+                    Mark it complete and carry what you learned into your day.
+                  </div>
+                  <button
+                    onClick={toggleComplete}
+                    style={{
+                      marginTop: 8,
+                      width: "100%",
+                      padding: "18px",
+                      background: completed ? COLORS.gold : "linear-gradient(135deg, " + COLORS.gold + ", " + COLORS.goldSoft + ")",
+                      color: COLORS.navyDeep,
+                      border: "none",
+                      borderRadius: 10,
+                      fontFamily: "Georgia, serif",
+                      fontSize: 14,
+                      fontWeight: 700,
+                      letterSpacing: 2,
+                      cursor: "pointer",
+                      textTransform: "uppercase",
+                      boxShadow: "0 4px 20px rgba(201, 169, 97, 0.25)",
+                    }}
+                  >
+                    {completed ? "✓ Reading Complete" : "Mark Reading Complete"}
+                  </button>
+                </div>
+              )}
+
             </div>
 
-            {/* Notes */}
-            <div style={{ marginBottom: 24 }}>
-              <div style={{ fontSize: 10, letterSpacing: 3, color: COLORS.goldSoft, textTransform: "uppercase", fontFamily: "Helvetica, sans-serif", marginBottom: 8 }}>Your Notes</div>
-              <textarea
-                value={noteText}
-                onChange={(e) => saveNote(e.target.value)}
-                placeholder="Reflections, questions, what stood out to you..."
-                style={{
-                  width: "100%",
-                  minHeight: 100,
-                  background: COLORS.charcoal,
-                  border: "1px solid " + COLORS.border,
-                  borderRadius: 10,
-                  padding: "12px 14px",
-                  color: COLORS.cream,
-                  fontFamily: "Georgia, serif",
-                  fontSize: 14,
-                  lineHeight: 1.6,
-                  resize: "vertical",
-                  outline: "none",
-                  boxSizing: "border-box",
-                }}
-              />
+            {/* Back / Next navigation */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 36, paddingTop: 20, borderTop: "1px solid " + COLORS.borderSoft }}>
+              {studyStep > 0 ? (
+                <button
+                  onClick={() => setStudyStep(s => s - 1)}
+                  style={{ background: "none", border: "1px solid " + COLORS.border, borderRadius: 8, padding: "10px 20px", color: COLORS.muted, fontFamily: "Helvetica, sans-serif", fontSize: 13, letterSpacing: 1, cursor: "pointer", textTransform: "uppercase" }}
+                >
+                  ← Back
+                </button>
+              ) : <div />}
+              {studyStep < STUDY_STEPS - 1 && (
+                <button
+                  onClick={() => setStudyStep(s => s + 1)}
+                  style={{ background: "linear-gradient(135deg, " + COLORS.gold + ", " + COLORS.goldSoft + ")", border: "none", borderRadius: 8, padding: "10px 24px", color: COLORS.navyDeep, fontFamily: "Helvetica, sans-serif", fontSize: 13, fontWeight: 700, letterSpacing: 1, cursor: "pointer", textTransform: "uppercase" }}
+                >
+                  Next →
+                </button>
+              )}
             </div>
 
-            {/* Mark complete */}
-            <button
-              onClick={toggleComplete}
-              style={{
-                width: "100%",
-                padding: "16px",
-                background: completed ? COLORS.gold : "transparent",
-                color: completed ? COLORS.navyDeep : COLORS.gold,
-                border: "1px solid " + COLORS.gold,
-                borderRadius: 10,
-                fontFamily: "Georgia, serif",
-                fontSize: 14,
-                fontWeight: 700,
-                letterSpacing: 2,
-                cursor: "pointer",
-                textTransform: "uppercase",
-              }}
-            >
-              {completed ? "✓ Reading Complete" : "Mark Reading Complete"}
-            </button>
           </div>
         )}
       </div>
