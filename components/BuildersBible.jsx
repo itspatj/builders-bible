@@ -1629,6 +1629,7 @@ function EntryView({ entryId, state, persist, setScreen, user }) {
   const [showBreathing, setShowBreathing] = useState(true);
   const [noteText, setNoteText] = useState(state.notes[entry.id] || "");
   const [preStudyNote, setPreStudyNote] = useState(state.preStudyNotes?.[entry.id] || "");
+  const [celebrating, setCelebrating] = useState(false);
 
   const unlock = async () => {
     const preStudyNotes = { ...(state.preStudyNotes || {}), [entry.id]: preStudyNote };
@@ -1646,6 +1647,8 @@ function EntryView({ entryId, state, persist, setScreen, user }) {
     } else {
       newCompleted = [...state.completedDays, entry.id];
       if (state.lastCompleted !== today) newStreak = state.streak + 1;
+      setCelebrating(true);
+      setTimeout(() => setCelebrating(false), 3000);
     }
     const next = { ...state, completedDays: newCompleted, streak: newStreak, lastCompleted: today };
     persist(next, user);
@@ -1678,6 +1681,66 @@ function EntryView({ entryId, state, persist, setScreen, user }) {
   }
   return (
     <div style={{ minHeight: "100vh", background: COLORS.navyDeep, color: COLORS.cream, fontFamily: "Georgia, serif" }}>
+     
+     {celebrating && (
+  <div style={{
+    position: "fixed", inset: 0, zIndex: 200,
+    display: "flex", flexDirection: "column",
+    alignItems: "center", justifyContent: "center",
+    background: "rgba(9, 19, 34, 0.92)",
+    animation: "fadeIn 0.4s ease",
+    pointerEvents: "none",
+  }}>
+    <div style={{
+      fontSize: 72,
+      animation: "bounceIn 0.6s ease",
+      marginBottom: 16,
+    }}>
+      🙏
+    </div>
+    <div style={{
+      fontSize: 22, fontWeight: 400,
+      color: COLORS.cream,
+      fontFamily: "Georgia, serif",
+      marginBottom: 8,
+      textAlign: "center",
+    }}>
+      Reading Complete
+    </div>
+    <div style={{
+      fontSize: 14, color: COLORS.goldSoft,
+      fontFamily: "Georgia, serif",
+      fontStyle: "italic",
+      textAlign: "center",
+      maxWidth: 260,
+    }}>
+      Well done. Keep showing up.
+    </div>
+    {state.streak > 1 && (
+      <div style={{
+        marginTop: 16,
+        padding: "8px 16px",
+        background: COLORS.charcoalLight,
+        border: "1px solid " + COLORS.gold,
+        borderRadius: 999,
+        fontSize: 13,
+        color: COLORS.gold,
+        fontFamily: "Helvetica, sans-serif",
+        letterSpacing: 1,
+      }}>
+        🔥 {state.streak} day streak
+      </div>
+    )}
+    <style>{`
+      @keyframes bounceIn {
+        0% { transform: scale(0); opacity: 0; }
+        60% { transform: scale(1.2); opacity: 1; }
+        100% { transform: scale(1); }
+      }
+    `}</style>
+  </div>
+)}
+
       {/* Top bar */}
       <div style={{ position: "sticky", top: 0, background: COLORS.navyDeep, borderBottom: "1px solid " + COLORS.borderSoft, padding: "16px 20px", zIndex: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <button onClick={() => setScreen("dashboard")} style={{ background: "none", border: "none", color: COLORS.gold, fontFamily: "inherit", fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
@@ -1855,7 +1918,7 @@ function EntryView({ entryId, state, persist, setScreen, user }) {
                 textTransform: "uppercase",
               }}
             >
-              {completed ? "✓ Completed" : "Mark Day Complete"}
+              {completed ? "✓ Reading Complete" : "Mark Reading Complete"}
             </button>
           </div>
         )}
