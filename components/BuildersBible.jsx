@@ -1626,6 +1626,7 @@ function EntryView({ entryId, state, persist, setScreen, user }) {
   const unlocked = state.unlockedDays.includes(entry.id);
   const completed = state.completedDays.includes(entry.id);
   const bookmarked = state.bookmarks.includes(entry.id);
+  const [showBreathing, setShowBreathing] = useState(true);
   const [noteText, setNoteText] = useState(state.notes[entry.id] || "");
   const [preStudyNote, setPreStudyNote] = useState(state.preStudyNotes?.[entry.id] || "");
 
@@ -1671,6 +1672,10 @@ function EntryView({ entryId, state, persist, setScreen, user }) {
     persist({ ...state, notes: next }, user);
     if (user?.id) await saveNoteDB(user.id, entry.id, text);
   };
+
+  if (showBreathing) {
+    return <BreathingTimer onComplete={() => setShowBreathing(false)} />;
+  }
   return (
     <div style={{ minHeight: "100vh", background: COLORS.navyDeep, color: COLORS.cream, fontFamily: "Georgia, serif" }}>
       {/* Top bar */}
@@ -2347,6 +2352,145 @@ function AuthScreen({ onAuth }) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+function BreathingTimer({ onComplete }) {
+  const [seconds, setSeconds] = useState(60);
+  const [phase, setPhase] = useState("in");
+
+  useEffect(() => {
+    if (seconds <= 0) {
+      onComplete();
+      return;
+    }
+    const timer = setTimeout(() => setSeconds((s) => s - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [seconds]);
+
+  useEffect(() => {
+    const breathCycle = setInterval(() => {
+      setPhase((p) => (p === "in" ? "out" : "in"));
+    }, 4000);
+    return () => clearInterval(breathCycle);
+  }, []);
+
+  const progress = ((60 - seconds) / 60) * 100;
+  const radius = 80;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDash = (progress / 100) * circumference;
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 100,
+      background: COLORS.navyDeep,
+      display: "flex", flexDirection: "column",
+      alignItems: "center", justifyContent: "center",
+      padding: "24px",
+      animation: "fadeIn 0.8s ease",
+    }}>
+      {/* Top text */}
+      <div style={{ textAlign: "center", marginBottom: 48, maxWidth: 320 }}>
+        <div style={{ fontSize: 11, letterSpacing: 4, color: COLORS.gold, textTransform: "uppercase", fontFamily: "Helvetica, sans-serif", marginBottom: 12 }}>
+          Before You Read
+        </div>
+        <p style={{ margin: 0, fontSize: 16, color: COLORS.cream, lineHeight: 1.7, fontFamily: "Georgia, serif", fontStyle: "italic" }}>
+          Put away all distractions. Breathe. Center yourself. Ask God to open your heart to what you are about to read.
+        </p>
+      </div>
+
+      {/* Breathing circle */}
+      <div style={{ position: "relative", width: 220, height: 220, marginBottom: 40 }}>
+        {/* Progress ring SVG */}
+        <svg width="220" height="220" style={{ position: "absolute", inset: 0, transform: "rotate(-90deg)" }}>
+          {/* Background ring */}
+          <circle
+            cx="110" cy="110" r={radius}
+            fill="none"
+            stroke={COLORS.border}
+            strokeWidth="3"
+          />
+          {/* Progress ring */}
+          <circle
+            cx="110" cy="110" r={radius}
+            fill="none"
+            stroke={COLORS.gold}
+            strokeWidth="3"
+            strokeDasharray={`${strokeDash} ${circumference}`}
+            strokeLinecap="round"
+            style={{ transition: "stroke-dasharray 1s linear" }}
+          />
+        </svg>
+
+        {/* Pulsing layers */}
+        <div style={{
+          position: "absolute", inset: 0,
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          {/* Outer pulse layer */}
+          <div style={{
+            position: "absolute",
+            width: phase === "in" ? 160 : 120,
+            height: phase === "in" ? 160 : 120,
+            borderRadius: "50%",
+            background: "rgba(201, 169, 97, 0.08)",
+            transition: "all 4s ease-in-out",
+          }} />
+          {/* Middle pulse layer */}
+          <div style={{
+            position: "absolute",
+            width: phase === "in" ? 130 : 95,
+            height: phase === "in" ? 130 : 95,
+            borderRadius: "50%",
+            background: "rgba(201, 169, 97, 0.12)",
+            transition: "all 4s ease-in-out",
+          }} />
+          {/* Inner circle */}
+          <div style={{
+            position: "absolute",
+            width: phase === "in" ? 100 : 75,
+            height: phase === "in" ? 100 : 75,
+            borderRadius: "50%",
+            background: "linear-gradient(135deg, " + COLORS.goldDim + ", " + COLORS.gold + ")",
+            transition: "all 4s ease-in-out",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            <span style={{
+              fontSize: 28, fontWeight: 700,
+              color: COLORS.navyDeep,
+              fontFamily: "Helvetica, sans-serif",
+            }}>
+              {seconds}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Breathe label */}
+      <div style={{
+        fontSize: 13, color: COLORS.goldSoft,
+        fontFamily: "Georgia, serif", fontStyle: "italic",
+        letterSpacing: 2, marginBottom: 40,
+        transition: "opacity 1s",
+      }}>
+        {phase === "in" ? "breathe in..." : "breathe out..."}
+      </div>
+
+      {/* Skip */}
+      <button
+        onClick={onComplete}
+        style={{
+          background: "none", border: "1px solid " + COLORS.border,
+          borderRadius: 999, padding: "8px 20px",
+          color: COLORS.muted, fontFamily: "Helvetica, sans-serif",
+          fontSize: 12, letterSpacing: 2, textTransform: "uppercase",
+          cursor: "pointer",
+        }}
+      >
+        Skip
+      </button>
+
+      <style>{"@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }"}</style>
     </div>
   );
 }
