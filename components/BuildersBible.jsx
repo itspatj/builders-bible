@@ -1186,6 +1186,13 @@ export default function App() {
     return <BookmarksView state={state} setScreen={setScreen} setActiveEntryId={setActiveEntryId} />;
   }
 
+  if (screen === "map") {
+    return <MapScreen setScreen={setScreen} />;
+  }
+  if (screen === "community") {
+    return <CommunityScreen setScreen={setScreen} />;
+  }
+
   /* ===== SETTINGS ===== */
   if (screen === "profile") {
     return <ProfileView state={state} setState={setState} user={user} setScreen={setScreen} />;
@@ -1414,205 +1421,296 @@ function Step2({ draft, setDraft }) {
 
 /* ============ DASHBOARD ============ */
 
+const D = {
+  bg: "#0A1628",
+  card: "#0F1E33",
+  border: "#1E2D45",
+  gold: "#C9A961",
+  text: "#F0EDE4",
+  muted: "#4A5A70",
+};
+
 function Dashboard({ state, persist, setScreen, setActiveEntryId, user }) {
-  const path = READING_PATHS.find((p) => p.id === state.readingPath);
-  const pace = PACES.find((p) => p.id === state.pace);
-  const entries = getEntriesForPath(state.readingPath);
-  const completedCount = state.completedDays.length;
-  const totalDays = path ? Math.round(path.daysApprox * (pace ? pace.multiplier : 1)) : 365;
-  const pct = Math.round((completedCount / totalDays) * 100);
-
-  return (
-    <div style={{ minHeight: "100vh", background: COLORS.navyDeep, color: COLORS.cream, fontFamily: "Georgia, serif", paddingBottom: 40 }}>
-      {/* Header */}
-      <div style={{ background: "linear-gradient(180deg, " + COLORS.charcoal + ", " + COLORS.navyDeep + ")", padding: "24px 20px 28px", borderBottom: "1px solid " + COLORS.borderSoft }}>
-        <div style={{ maxWidth: 560, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div>
-            <div style={{ fontSize: 10, letterSpacing: 4, color: COLORS.goldSoft, textTransform: "uppercase", fontFamily: "Helvetica, sans-serif", marginBottom: 4 }}>The Builder's Bible</div>
-            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 400, color: COLORS.cream, letterSpacing: -0.3 }}>Today</h1>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 12px", background: COLORS.charcoalLight, borderRadius: 999, border: "1px solid " + COLORS.border }}>
-            <Flame size={14} color={COLORS.gold} />
-            <span style={{ fontSize: 13, fontWeight: 700, color: COLORS.gold }}>{state.streak}</span>
-          </div>
-        </div>
-      </div>
-
-      <div style={{ maxWidth: 560, margin: "0 auto", padding: "20px 20px 0" }}>
-        {/* Plan Overview */}
-        <div style={{ background: COLORS.charcoal, border: "1px solid " + COLORS.border, borderRadius: 12, padding: "18px 20px", marginBottom: 20 }}>
-          <div style={{ fontSize: 10, letterSpacing: 3, color: COLORS.goldSoft, textTransform: "uppercase", fontFamily: "Helvetica, sans-serif", marginBottom: 6 }}>Your Plan</div>
-          <div style={{ fontSize: 18, fontWeight: 700, color: COLORS.cream, marginBottom: 2 }}>{path ? path.name : "--"}</div>
-          <div style={{ fontSize: 13, color: COLORS.muted, fontStyle: "italic", marginBottom: 14 }}>{pace ? pace.name : "--"}</div>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-            <span style={{ fontSize: 11, color: COLORS.muted, letterSpacing: 1, textTransform: "uppercase", fontFamily: "Helvetica, sans-serif" }}>Progress</span>
-            <span style={{ fontSize: 11, color: COLORS.goldSoft, letterSpacing: 1, fontFamily: "Helvetica, sans-serif" }}>{completedCount} / {totalDays} &middot; {pct}%</span>
-          </div>
-          <div style={{ background: COLORS.navyDeep, height: 4, borderRadius: 2, overflow: "hidden" }}>
-            <div style={{ background: "linear-gradient(90deg, " + COLORS.goldDim + ", " + COLORS.gold + ")", width: pct + "%", height: "100%", transition: "width 0.5s" }} />
-          </div>
-        </div>
-
-       {/* Today's Focus */}
-{(() => {
-  const allEntries = getEntriesForPath(state.readingPath);
+  const allEntries = Object.values(ENTRIES).flat();
   const completedSet = new Set(state.completedDays);
-  
-  let orderedEntries = allEntries;
-  if (state.readingPath === 'thematic' && state.readingSequence) {
-    orderedEntries = state.readingSequence
-      .map((id) => allEntries.find((e) => e.id === id))
-      .filter(Boolean);
-  }
-  
-  const nextEntry = orderedEntries.find((e) => !completedSet.has(e.id));
-  const upNextEntry = nextEntry ? orderedEntries[orderedEntries.indexOf(nextEntry) + 1] : null;
-  const allDone = !nextEntry;
 
-  if (allDone) {
-    return (
-      <div style={{
-        background: "linear-gradient(135deg, #1A2238, #222C45)",
-        border: "1px solid " + COLORS.gold,
-        borderRadius: 16, padding: "32px 24px", textAlign: "center",
-        boxShadow: "0 4px 32px rgba(201, 169, 97, 0.15)",
-      }}>
-        <div style={{ fontSize: 32, marginBottom: 12 }}>🙏</div>
-        <div style={{ fontSize: 10, letterSpacing: 4, color: COLORS.gold, textTransform: "uppercase", fontFamily: "Helvetica, sans-serif", marginBottom: 10 }}>You finished this path</div>
-        <h2 style={{ margin: "0 0 12px", fontSize: 22, fontWeight: 400, color: COLORS.cream, lineHeight: 1.3 }}>
-          Well done, good and faithful servant.
-        </h2>
-        <p style={{ margin: "0 0 20px", fontSize: 14, color: COLORS.muted, lineHeight: 1.7, fontStyle: "italic" }}>
-          "Let us not become weary in doing good, for at the proper time we will reap a harvest if we do not give up." — Galatians 6:9
-        </p>
-        <div style={{ width: 40, height: 1, background: COLORS.goldDim, margin: "0 auto 20px" }} />
-        <p style={{ margin: 0, fontSize: 13, color: COLORS.muted, lineHeight: 1.6 }}>
-          More content is on the way. Keep your notes and bookmarks -- your journey here is saved.
-        </p>
-      </div>
-    );
+  const pathEntries = getEntriesForPath(state.readingPath);
+  let orderedEntries = pathEntries;
+  if (state.readingPath === "thematic" && state.readingSequence) {
+    orderedEntries = state.readingSequence.map((id) => pathEntries.find((e) => e.id === id)).filter(Boolean);
   }
+
+  const todayEntry = orderedEntries.find((e) => !completedSet.has(e.id));
+  const tomorrowEntry = todayEntry ? orderedEntries[orderedEntries.indexOf(todayEntry) + 1] : null;
+  const allDone = !todayEntry;
+
+  const chaptersRead = state.completedDays.length;
+  const getBook = (reading) => reading.replace(/\s*\(NIV\)\s*$/, "").replace(/\s+\d.*$/, "").trim();
+  const completedBooks = new Set(
+    state.completedDays.map((id) => allEntries.find((e) => e.id === id)).filter(Boolean).map((e) => getBook(e.reading))
+  ).size;
+
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const fullName = user?.user_metadata?.full_name || "";
+  const firstName = fullName.split(" ")[0] || user?.email?.split("@")[0] || "friend";
+  const dateStr = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+
+  const estReadTime = todayEntry ? (() => {
+    const words = [todayEntry.context, todayEntry.principle, todayEntry.deepDive, todayEntry.application, todayEntry.question, todayEntry.prayer]
+      .filter(Boolean).join(" ").split(/\s+/).length;
+    return "~" + Math.max(5, Math.ceil(words / 200)) + " min";
+  })() : null;
 
   return (
-    <div>
-      {/* Today label */}
-      <div style={{ fontSize: 10, letterSpacing: 3, color: COLORS.goldSoft, textTransform: "uppercase", fontFamily: "Helvetica, sans-serif", marginBottom: 10 }}>
-        Today's Focus
+    <div style={{ minHeight: "100vh", background: D.bg, color: D.text, fontFamily: "Georgia, serif" }}>
+
+      {/* Status bar */}
+      <div style={{ display: "flex", justifyContent: "space-between", padding: "14px 24px 0", fontFamily: "Helvetica, sans-serif", fontSize: 12, color: D.muted }}>
+        <span>{new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</span>
+        <span style={{ letterSpacing: 2 }}>▪▪▪</span>
       </div>
 
-      {/* Main entry card */}
-      <button
-        onClick={() => { setActiveEntryId(nextEntry.id); setScreen("entry"); }}
-        style={{
-          width: "100%",
-          background: "linear-gradient(135deg, " + COLORS.charcoal + ", " + COLORS.charcoalLight + ")",
-          border: "1px solid " + COLORS.gold,
-          borderRadius: 16, padding: "22px 20px",
-          textAlign: "left", cursor: "pointer",
-          color: COLORS.cream, fontFamily: "inherit",
-          boxShadow: "0 4px 24px rgba(201, 169, 97, 0.1)",
-          marginBottom: 12,
-          display: "block",
-        }}
-      >
-        {nextEntry.trackName && (
-          <div style={{ fontSize: 10, letterSpacing: 3, color: COLORS.gold, textTransform: "uppercase", fontFamily: "Helvetica, sans-serif", marginBottom: 6 }}>
-            {nextEntry.trackName}
+      {/* Scrollable body */}
+      <div style={{ maxWidth: 560, margin: "0 auto", padding: "20px 20px 100px" }}>
+
+        {/* Header */}
+        <div style={{ marginBottom: 22 }}>
+          <div style={{ fontSize: 10, letterSpacing: 4, color: D.gold, textTransform: "uppercase", fontFamily: "Helvetica, sans-serif", marginBottom: 10 }}>
+            The Builder's Bible
+          </div>
+          <h1 style={{ margin: "0 0 5px", fontSize: 30, fontWeight: 400, color: D.text, letterSpacing: -0.5, lineHeight: 1.15 }}>
+            {greeting}, {firstName}.
+          </h1>
+          <div style={{ fontSize: 13, color: D.muted, fontFamily: "Helvetica, sans-serif" }}>{dateStr}</div>
+        </div>
+
+        {/* Gold divider */}
+        <div style={{ height: 1, background: "linear-gradient(90deg, transparent, rgba(201,169,97,0.5), transparent)", marginBottom: 24 }} />
+
+        {/* Stats row */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 24 }}>
+          <DashStatCard emoji="🔥" value={state.streak} label="Streak" />
+          <DashStatCard emoji="📖" value={chaptersRead} label="Chapters" />
+          <DashStatCard emoji="👑" value={completedBooks + "/66"} label="Books" />
+        </div>
+
+        {/* Today's Reading */}
+        {allDone ? (
+          <div style={{
+            background: D.card, border: "1px solid " + D.gold, borderRadius: 20,
+            padding: "32px 24px", textAlign: "center",
+            boxShadow: "0 0 60px rgba(201,169,97,0.12)",
+          }}>
+            <div style={{ fontSize: 36, marginBottom: 14 }}>🙏</div>
+            <div style={{ fontSize: 10, letterSpacing: 4, color: D.gold, textTransform: "uppercase", fontFamily: "Helvetica, sans-serif", marginBottom: 12 }}>Path Complete</div>
+            <h2 style={{ margin: "0 0 14px", fontSize: 22, fontWeight: 400, color: D.text, lineHeight: 1.35 }}>
+              Well done, good and faithful servant.
+            </h2>
+            <p style={{ margin: 0, fontSize: 14, color: D.muted, lineHeight: 1.75, fontStyle: "italic" }}>
+              "Let us not become weary in doing good, for at the proper time we will reap a harvest if we do not give up." — Galatians 6:9
+            </p>
+          </div>
+        ) : (
+          <div style={{
+            background: "radial-gradient(ellipse at 50% 0%, rgba(201,169,97,0.07) 0%, " + D.card + " 65%)",
+            border: "1px solid " + D.gold,
+            borderRadius: 20,
+            padding: "24px 22px 0",
+            boxShadow: "0 0 60px rgba(201,169,97,0.1)",
+            marginBottom: 16,
+            overflow: "hidden",
+          }}>
+            {/* Ornamental divider */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+              <div style={{ flex: 1, height: 1, background: "linear-gradient(90deg, transparent, rgba(201,169,97,0.4))" }} />
+              <span style={{ fontSize: 10, letterSpacing: 3, color: D.gold, textTransform: "uppercase", fontFamily: "Helvetica, sans-serif" }}>Today's Reading</span>
+              <div style={{ flex: 1, height: 1, background: "linear-gradient(90deg, rgba(201,169,97,0.4), transparent)" }} />
+            </div>
+
+            {todayEntry.trackName && (
+              <div style={{ fontSize: 10, letterSpacing: 3, color: D.gold, textTransform: "uppercase", fontFamily: "Helvetica, sans-serif", marginBottom: 8, opacity: 0.7 }}>
+                {todayEntry.trackName}
+              </div>
+            )}
+
+            <h2 style={{ margin: "0 0 12px", fontSize: 24, fontWeight: 700, color: D.text, lineHeight: 1.25, letterSpacing: -0.3 }}>
+              {todayEntry.reading}
+            </h2>
+
+            <p style={{ margin: "0 0 22px", fontSize: 15, color: "rgba(201,169,97,0.85)", fontStyle: "italic", lineHeight: 1.65 }}>
+              {todayEntry.hook}
+            </p>
+
+            {/* CTA button */}
+            <button
+              onClick={() => { setActiveEntryId(todayEntry.id); setScreen("entry"); }}
+              style={{
+                width: "100%",
+                padding: "16px",
+                background: "linear-gradient(135deg, #C9A961, #D4B870)",
+                color: "#0A1628",
+                border: "none",
+                borderRadius: 10,
+                fontFamily: "Helvetica, sans-serif",
+                fontSize: 13,
+                fontWeight: 700,
+                letterSpacing: 2,
+                textTransform: "uppercase",
+                cursor: "pointer",
+                marginBottom: 0,
+              }}
+            >
+              Start Today's Reading
+            </button>
+
+            {/* Footer */}
+            <div style={{
+              margin: "0 -22px",
+              marginTop: 16,
+              padding: "12px 22px",
+              background: "rgba(0,0,0,0.25)",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}>
+              <BookOpen size={13} color={D.muted} />
+              <span style={{ fontSize: 12, color: D.muted, fontFamily: "Helvetica, sans-serif" }}>{estReadTime} study</span>
+            </div>
           </div>
         )}
-        <div style={{ fontSize: 18, fontWeight: 700, color: COLORS.cream, marginBottom: 8, lineHeight: 1.3 }}>
-          {nextEntry.reading}
-        </div>
-        <div style={{ fontSize: 14, color: COLORS.muted, fontStyle: "italic", lineHeight: 1.6, marginBottom: 16 }}>
-          {nextEntry.hook}
-        </div>
-        <div style={{
-          display: "inline-flex", alignItems: "center", gap: 6,
-          background: COLORS.gold, color: COLORS.navyDeep,
-          padding: "8px 16px", borderRadius: 999,
-          fontSize: 11, fontWeight: 700, letterSpacing: 2,
-          textTransform: "uppercase", fontFamily: "Helvetica, sans-serif",
-        }}>
-          Open Today's Reading
-          <ArrowRight size={13} />
-        </div>
-      </button>
 
-      {/* Up Next */}
-      {upNextEntry && (
-        <div>
-          <div style={{ fontSize: 10, letterSpacing: 3, color: COLORS.muted, textTransform: "uppercase", fontFamily: "Helvetica, sans-serif", marginBottom: 8 }}>
-            Up Next
-          </div>
-          <button
-            onClick={() => { setActiveEntryId(upNextEntry.id); setScreen("entry"); }}
-            style={{
-              width: "100%",
-              background: COLORS.charcoal,
-              border: "1px solid " + COLORS.border,
-              borderRadius: 12, padding: "14px 16px",
-              textAlign: "left", cursor: "pointer",
-              color: COLORS.cream, fontFamily: "inherit",
-              display: "flex", alignItems: "center", gap: 12,
-              opacity: 0.75,
-            }}
-          >
-            <div style={{ flex: 1 }}>
-              {upNextEntry.trackName && (
-                <div style={{ fontSize: 9, letterSpacing: 2, color: COLORS.goldSoft, textTransform: "uppercase", fontFamily: "Helvetica, sans-serif", marginBottom: 3 }}>
-                  {upNextEntry.trackName}
-                </div>
-              )}
-              <div style={{ fontSize: 14, fontWeight: 700, color: COLORS.cream, marginBottom: 3 }}>
-                {upNextEntry.reading}
+        {/* Tomorrow teaser */}
+        {tomorrowEntry && !allDone && (
+          <div style={{
+            background: D.card,
+            border: "1px solid " + D.border,
+            borderRadius: 20,
+            padding: "16px 20px",
+            display: "flex",
+            alignItems: "center",
+            gap: 0,
+            opacity: 0.6,
+          }}>
+            <div style={{ fontSize: 10, letterSpacing: 3, color: D.muted, textTransform: "uppercase", fontFamily: "Helvetica, sans-serif", whiteSpace: "nowrap", paddingRight: 16 }}>
+              Tomorrow
+            </div>
+            <div style={{ width: 1, alignSelf: "stretch", background: D.border, marginRight: 16 }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: D.text, marginBottom: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                {tomorrowEntry.reading}
               </div>
-              <div style={{ fontSize: 12, color: COLORS.muted, fontStyle: "italic", lineHeight: 1.5 }}>
-                {upNextEntry.hook}
+              <div style={{ fontSize: 12, color: D.muted, fontStyle: "italic", lineHeight: 1.5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                {tomorrowEntry.hook}
               </div>
             </div>
-            <ArrowRight size={14} color={COLORS.muted} />
-          </button>
-        </div>
-      )}
-    </div>
-  );
-})()}
+          </div>
+        )}
 
-        {/* Footer Nav */}
-        <div style={{ marginTop: 28, paddingTop: 20, borderTop: "1px solid " + COLORS.borderSoft, display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
-  <NavButton icon={<NotebookPen size={16} />} label="Notes" onClick={() => setScreen("notes")} count={Object.keys(state.notes).length} />
-  <NavButton icon={<Bookmark size={16} />} label="Saved" onClick={() => setScreen("bookmarks")} count={state.bookmarks.length} />
-  <NavButton icon={<User size={16} />} label="Profile" onClick={() => setScreen("profile")} />
-  <NavButton icon={<Settings size={16} />} label="Settings" onClick={() => setScreen("settings")} />
-</div>
       </div>
+
+      <BottomNav active="home" setScreen={setScreen} />
     </div>
   );
 }
 
-function NavButton({ icon, label, onClick, count }) {
+function DashStatCard({ emoji, value, label }) {
   return (
-    <button
-      onClick={onClick}
-      style={{
-        background: COLORS.charcoal,
-        border: "1px solid " + COLORS.border,
-        borderRadius: 10,
-        padding: "12px 8px",
-        cursor: "pointer",
-        color: COLORS.cream,
-        fontFamily: "Georgia, serif",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        gap: 5,
-      }}
-    >
-      <div style={{ color: COLORS.gold }}>{icon}</div>
-      <div style={{ fontSize: 11, letterSpacing: 2, color: COLORS.muted, textTransform: "uppercase", fontFamily: "Helvetica, sans-serif" }}>
-        {label}{count !== undefined && count > 0 ? " (" + count + ")" : ""}
+    <div style={{
+      background: D.card,
+      border: "1px solid " + D.border,
+      borderTop: "2px solid rgba(201,169,97,0.45)",
+      borderRadius: 14,
+      padding: "14px 10px 12px",
+      textAlign: "center",
+    }}>
+      <div style={{ fontSize: 20, marginBottom: 6 }}>{emoji}</div>
+      <div style={{ fontSize: 22, fontWeight: 700, color: D.text, fontFamily: "Georgia, serif", lineHeight: 1, marginBottom: 4 }}>{value}</div>
+      <div style={{ fontSize: 10, letterSpacing: 2, color: D.muted, textTransform: "uppercase", fontFamily: "Helvetica, sans-serif" }}>{label}</div>
+    </div>
+  );
+}
+
+function BottomNav({ active, setScreen }) {
+  const tabs = [
+    { id: "home", label: "Home", icon: <BookOpen size={20} />, action: () => setScreen("dashboard") },
+    { id: "map", label: "Map", icon: <Compass size={20} />, action: () => setScreen("map") },
+    { id: "community", label: "Community", icon: <Sparkles size={20} />, action: () => setScreen("community") },
+    { id: "profile", label: "Profile", icon: <User size={20} />, action: () => setScreen("profile") },
+  ];
+  return (
+    <div style={{
+      position: "fixed", bottom: 0, left: 0, right: 0,
+      background: D.bg,
+      borderTop: "1px solid " + D.border,
+      display: "flex",
+      justifyContent: "space-around",
+      padding: "10px 0 20px",
+      zIndex: 50,
+    }}>
+      {tabs.map((tab) => {
+        const isActive = active === tab.id;
+        return (
+          <button
+            key={tab.id}
+            onClick={tab.action}
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 4,
+              padding: "6px 16px",
+              borderRadius: 999,
+              backgroundColor: isActive ? "rgba(201,169,97,0.15)" : "transparent",
+            }}
+          >
+            <div style={{ color: isActive ? D.gold : D.muted }}>{tab.icon}</div>
+            <span style={{
+              fontSize: 10, letterSpacing: 2,
+              textTransform: "uppercase",
+              fontFamily: "Helvetica, sans-serif",
+              color: isActive ? D.gold : D.muted,
+              fontWeight: isActive ? 700 : 400,
+            }}>{tab.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function MapScreen({ setScreen }) {
+  return (
+    <div style={{ minHeight: "100vh", background: D.bg, color: D.text, fontFamily: "Georgia, serif" }}>
+      <div style={{ maxWidth: 560, margin: "0 auto", padding: "60px 20px 100px", textAlign: "center" }}>
+        <div style={{ fontSize: 48, marginBottom: 20 }}>🗺️</div>
+        <div style={{ fontSize: 10, letterSpacing: 4, color: D.gold, textTransform: "uppercase", fontFamily: "Helvetica, sans-serif", marginBottom: 12 }}>Coming Soon</div>
+        <h2 style={{ margin: "0 0 12px", fontSize: 22, fontWeight: 400, color: D.text }}>Reading Map</h2>
+        <p style={{ margin: 0, fontSize: 14, color: D.muted, lineHeight: 1.7, fontStyle: "italic" }}>
+          A visual map of your journey through scripture. Your progress, paths, and milestones — all in one place.
+        </p>
       </div>
-    </button>
+      <BottomNav active="map" setScreen={setScreen} />
+    </div>
+  );
+}
+
+function CommunityScreen({ setScreen }) {
+  return (
+    <div style={{ minHeight: "100vh", background: D.bg, color: D.text, fontFamily: "Georgia, serif" }}>
+      <div style={{ maxWidth: 560, margin: "0 auto", padding: "60px 20px 100px", textAlign: "center" }}>
+        <div style={{ fontSize: 48, marginBottom: 20 }}>✨</div>
+        <div style={{ fontSize: 10, letterSpacing: 4, color: D.gold, textTransform: "uppercase", fontFamily: "Helvetica, sans-serif", marginBottom: 12 }}>Coming Soon</div>
+        <h2 style={{ margin: "0 0 12px", fontSize: 22, fontWeight: 400, color: D.text }}>Community</h2>
+        <p style={{ margin: 0, fontSize: 14, color: D.muted, lineHeight: 1.7, fontStyle: "italic" }}>
+          Build alongside other founders and leaders who are reading the same passages and asking the same questions.
+        </p>
+      </div>
+      <BottomNav active="community" setScreen={setScreen} />
+    </div>
   );
 }
 
