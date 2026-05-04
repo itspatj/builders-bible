@@ -1087,7 +1087,7 @@ export default function App() {
   useEffect(() => {
     const supabase = createClient();
   
-    const loadData = async (sessionUser) => {
+    const loadData = async (sessionUser, navigateToDashboard = false) => {
       if (!sessionUser) {
         setUser(null);
         setAuthLoaded(true);
@@ -1100,27 +1100,23 @@ export default function App() {
         const data = await loadUserData(sessionUser.id);
         console.log('loaded data:', data);
         setState(data);
-        if (data.onboarded) setScreen('dashboard');
+        if (navigateToDashboard && data.onboarded) setScreen('dashboard');
       } catch (e) {
         console.error('Error loading user data:', e);
       }
       setLoaded(true);
     };
-  
+
     supabase.auth.getSession().then(({ data: { session } }) => {
-      loadData(session?.user ?? null);
+      loadData(session?.user ?? null, true);
     });
-  
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'USER_UPDATED') {
+      if (event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED') {
         setUser(session?.user ?? null);
         return;
       }
-      if (event === 'TOKEN_REFRESHED') {
-        setUser(session?.user ?? null);
-        return;
-      }
-      loadData(session?.user ?? null);
+      loadData(session?.user ?? null, false);
     });
   
     return () => subscription.unsubscribe();
